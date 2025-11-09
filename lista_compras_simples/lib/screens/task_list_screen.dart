@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:io' show Platform;
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../services/backup_service.dart';
+import '../services/sensor_service.dart';
+import '../services/location_service.dart';
 import '../widgets/task_card.dart';
 import 'task_form_screen.dart';
 
@@ -29,6 +32,70 @@ class _TaskListScreenState extends State<TaskListScreen> {
   void initState() {
     super.initState();
     _initializeApp();
+    _setupShakeDetection();
+    _setupGeofencing();
+  }
+
+  @override
+  void dispose() {
+    SensorService.instance.stop();
+    LocationService.instance.stopGeofenceMonitoring();
+    super.dispose();
+  }
+
+  void _setupShakeDetection() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      SensorService.instance.startShakeDetection(
+        () {},
+        onLongShake: () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.cyclone, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        '🌀 Estou ficando tonto!',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.deepPurple,
+                duration: const Duration(seconds: 3),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        },
+      );
+    } else {
+      print(
+        '⚠️ Sensores não disponíveis nesta plataforma (Windows/Linux/macOS)',
+      );
+    }
+  }
+
+  void _setupGeofencing() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      LocationService.instance.startGeofenceMonitoring((geofenceId, entered) {
+        final task = _tasks.firstWhere(
+          (t) => t.id == geofenceId,
+          orElse: () => _tasks.first,
+        );
+        if (task.id == geofenceId) {
+          NotificationService().showGeofenceNotification(task.title, entered);
+        }
+      });
+    }
   }
 
   Future<void> _initializeApp() async {
@@ -80,6 +147,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           _applyFiltersAndSort();
           _isLoading = false;
         });
+        _updateGeofences();
       }
     } catch (e) {
       if (mounted) {
@@ -90,6 +158,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  void _updateGeofences() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      for (final task in _tasks) {
+        if (task.hasLocation && !task.completed) {
+          LocationService.instance.addGeofence(
+            task.id,
+            task.latitude!,
+            task.longitude!,
+            100.0,
+          );
+        }
       }
     }
   }

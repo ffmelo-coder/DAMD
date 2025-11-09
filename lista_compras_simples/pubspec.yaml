@@ -61,6 +61,22 @@ dependencies:
   
   # File picker para importação
   file_picker: ^8.1.2
+  
+  # Câmera e Galeria (AULA 3)
+  camera: ^0.10.5+9
+  image_picker: ^1.0.7
+  
+  # Sensores (AULA 3)
+  sensors_plus: ^4.0.2
+  vibration: ^1.8.4
+  
+  # GPS e Localização (AULA 3)
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  http: ^1.1.0
+  
+  # Filtros de Imagem (AULA 3 - Atividade)
+  image: ^4.1.3
 
 dev_dependencies:
   flutter_test:

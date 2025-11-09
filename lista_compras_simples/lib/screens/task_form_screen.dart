@@ -1,9 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
+import '../services/camera_service.dart';
+import '../services/location_service.dart';
+import '../widgets/location_picker.dart';
+import '../screens/photo_filter_screen.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final Task? task;
@@ -27,6 +32,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   TimeOfDay? _reminderTime;
   List<Category> _categories = [];
 
+  String? _photoPath;
+  List<String> _photosPaths = [];
+  double? _latitude;
+  double? _longitude;
+  String? _locationName;
+  List<Map<String, dynamic>> _locationHistory = [];
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +51,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _completed = widget.task!.completed;
       _categoryId = widget.task!.categoryId;
       _dueDate = widget.task!.dueDate;
+
+      _photoPath = widget.task!.photoPath;
+      _photosPaths = widget.task!.photosPaths ?? [];
+      _latitude = widget.task!.latitude;
+      _longitude = widget.task!.longitude;
+      _locationName = widget.task!.locationName;
+      _locationHistory = widget.task!.locationHistory ?? [];
 
       if (widget.task!.reminderTime != null) {
         _reminderTime = TimeOfDay.fromDateTime(widget.task!.reminderTime!);
@@ -62,6 +81,210 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _takePicture() async {
+    final photoPath = await CameraService.instance.takePicture(context);
+
+    if (photoPath != null && mounted) {
+      final shouldApplyFilter = await _showFilterOption();
+
+      String finalPhotoPath = photoPath;
+      if (shouldApplyFilter == true && mounted) {
+        final filteredPath = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoFilterScreen(imagePath: photoPath),
+          ),
+        );
+        if (filteredPath != null) {
+          finalPhotoPath = filteredPath;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _photoPath = finalPhotoPath;
+          if (!_photosPaths.contains(finalPhotoPath)) {
+            _photosPaths.add(finalPhotoPath);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📷 Foto capturada!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool?> _showFilterOption() async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Aplicar Filtro?'),
+        content: const Text('Deseja aplicar um filtro à foto?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('NÃO'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('SIM'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickFromGallery() async {
+    final photoPath = await CameraService.instance.pickFromGallery();
+
+    if (photoPath != null && mounted) {
+      final shouldApplyFilter = await _showFilterOption();
+
+      String finalPhotoPath = photoPath;
+      if (shouldApplyFilter == true && mounted) {
+        final filteredPath = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoFilterScreen(imagePath: photoPath),
+          ),
+        );
+        if (filteredPath != null) {
+          finalPhotoPath = filteredPath;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _photoPath = finalPhotoPath;
+          if (!_photosPaths.contains(finalPhotoPath)) {
+            _photosPaths.add(finalPhotoPath);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🖼️ Foto selecionada!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickMultipleFromGallery() async {
+    final photos = await CameraService.instance.pickMultipleFromGallery();
+
+    if (photos.isNotEmpty && mounted) {
+      setState(() {
+        for (final photo in photos) {
+          if (!_photosPaths.contains(photo)) {
+            _photosPaths.add(photo);
+          }
+        }
+        if (_photoPath == null && _photosPaths.isNotEmpty) {
+          _photoPath = _photosPaths.first;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🖼️ ${photos.length} foto(s) selecionada(s)!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _removePhoto(String photoPath) {
+    setState(() {
+      _photosPaths.remove(photoPath);
+      if (_photoPath == photoPath) {
+        _photoPath = _photosPaths.isNotEmpty ? _photosPaths.first : null;
+      }
+    });
+  }
+
+  void _viewPhoto(String photoPath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.file(File(photoPath), fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showLocationPicker() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: LocationPicker(
+            initialLatitude: _latitude,
+            initialLongitude: _longitude,
+            initialAddress: _locationName,
+            onLocationSelected: (lat, lon, address) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lon;
+                _locationName = address;
+                _addToLocationHistory(lat, lon, address);
+              });
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('📍 Localização selecionada!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addToLocationHistory(double lat, double lon, String? address) {
+    final historyEntry = {
+      'latitude': lat,
+      'longitude': lon,
+      'address': address ?? 'Endereço desconhecido',
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    _locationHistory.add(historyEntry);
+  }
+
+  void _removeLocation() {
+    setState(() {
+      _latitude = null;
+      _longitude = null;
+      _locationName = null;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('📍 Localização removida')));
   }
 
   Future<void> _saveTask() async {
@@ -92,6 +315,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           categoryId: _categoryId,
           dueDate: _dueDate,
           reminderTime: reminderDateTime,
+          photoPath: _photoPath,
+          photosPaths: _photosPaths.isNotEmpty ? _photosPaths : null,
+          latitude: _latitude,
+          longitude: _longitude,
+          locationName: _locationName,
+          locationHistory: _locationHistory.isNotEmpty
+              ? _locationHistory
+              : null,
         );
         await DatabaseService.instance.create(newTask);
 
@@ -120,6 +351,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           reminderTime: reminderDateTime,
           clearDueDate: _dueDate == null,
           clearReminderTime: reminderDateTime == null,
+          photoPath: _photoPath,
+          photosPaths: _photosPaths.isNotEmpty ? _photosPaths : null,
+          latitude: _latitude,
+          longitude: _longitude,
+          locationName: _locationName,
+          locationHistory: _locationHistory.isNotEmpty
+              ? _locationHistory
+              : null,
         );
         await DatabaseService.instance.update(updatedTask);
 
@@ -399,6 +638,196 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        const Icon(Icons.photo_camera, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Fotos',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_photosPaths.isNotEmpty)
+                          Text(
+                            '${_photosPaths.length} foto(s)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _takePicture,
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Câmera'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.all(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickFromGallery,
+                            icon: const Icon(Icons.photo_library),
+                            label: const Text('Galeria'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.all(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickMultipleFromGallery,
+                            icon: const Icon(Icons.photo_library),
+                            label: const Text('Múltiplas'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.all(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    if (_photosPaths.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _photosPaths.length,
+                          itemBuilder: (context, index) {
+                            final photoPath = _photosPaths[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Stack(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _viewPhoto(photoPath),
+                                    child: Container(
+                                      width: 120,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.grey.shade300,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.file(
+                                          File(photoPath),
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stack) {
+                                                return const Center(
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    color: Colors.grey,
+                                                  ),
+                                                );
+                                              },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: Colors.red,
+                                      child: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                        onPressed: () =>
+                                            _removePhoto(photoPath),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Localização',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_latitude != null)
+                          TextButton.icon(
+                            onPressed: _removeLocation,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text('Remover'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    if (_latitude != null && _longitude != null)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.location_on,
+                            color: Colors.blue,
+                          ),
+                          title: Text(_locationName ?? 'Localização salva'),
+                          subtitle: Text(
+                            LocationService.instance.formatCoordinates(
+                              _latitude!,
+                              _longitude!,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: _showLocationPicker,
+                          ),
+                        ),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _showLocationPicker,
+                        icon: const Icon(Icons.add_location),
+                        label: const Text('Adicionar Localização'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                        ),
+                      ),
 
                     const SizedBox(height: 24),
 

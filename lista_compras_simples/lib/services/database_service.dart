@@ -27,7 +27,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -44,7 +44,15 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         dueDate TEXT,
         categoryId TEXT,
-        reminderTime TEXT
+        reminderTime TEXT,
+        photoPath TEXT,
+        photosPaths TEXT,
+        completedAt TEXT,
+        completedBy TEXT,
+        latitude REAL,
+        longitude REAL,
+        locationName TEXT,
+        locationHistory TEXT
       )
     ''');
 
@@ -57,7 +65,7 @@ class DatabaseService {
       )
     ''');
 
-    final categories = Category.getDefaultCategories();
+    final categories = Category.defaultCategories;
     for (final category in categories) {
       await db.insert('categories', category.toMap());
     }
@@ -81,10 +89,24 @@ class DatabaseService {
         )
       ''');
 
-      final categories = Category.getDefaultCategories();
+      final categories = Category.defaultCategories;
       for (final category in categories) {
         await db.insert('categories', category.toMap());
       }
+    }
+
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN photoPath TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN completedAt TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN completedBy TEXT');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN photosPaths TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN latitude REAL');
+      await db.execute('ALTER TABLE tasks ADD COLUMN longitude REAL');
+      await db.execute('ALTER TABLE tasks ADD COLUMN locationName TEXT');
+      await db.execute('ALTER TABLE tasks ADD COLUMN locationHistory TEXT');
     }
   }
 
@@ -276,7 +298,7 @@ class DatabaseService {
           await txn.insert('categories', categoryData);
         }
       } else {
-        final categories = Category.getDefaultCategories();
+        final categories = Category.defaultCategories;
         for (final category in categories) {
           await txn.insert('categories', category.toMap());
         }

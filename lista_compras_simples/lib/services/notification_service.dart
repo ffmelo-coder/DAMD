@@ -252,4 +252,43 @@ class NotificationService {
     if (!_isSupported) return;
     await _flutterLocalNotificationsPlugin.cancelAll();
   }
+
+  Future<void> showGeofenceNotification(String taskTitle, bool entered) async {
+    if (!_isSupported) return;
+
+    try {
+      final icon = entered ? '📍' : '🚶';
+      final action = entered ? 'próximo' : 'distante';
+
+      const AndroidNotificationDetails androidPlatformChannelSpecifics =
+          AndroidNotificationDetails(
+            'geofence_alerts',
+            'Alertas de Localização',
+            channelDescription:
+                'Notificações quando você está perto de tarefas',
+            importance: Importance.high,
+            priority: Priority.high,
+            color: Color(0xFF9C27B0),
+          );
+
+      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+          DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          );
+
+      const NotificationDetails platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSPlatformChannelSpecifics,
+      );
+
+      await _flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch % 100000,
+        '$icon Tarefa $action',
+        taskTitle,
+        platformChannelSpecifics,
+      );
+    } catch (e) {}
+  }
 }

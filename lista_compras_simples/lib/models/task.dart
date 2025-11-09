@@ -11,6 +11,17 @@ class Task {
   final String categoryId;
   final DateTime? reminderTime;
 
+  final String? photoPath;
+  final List<String>? photosPaths;
+
+  final DateTime? completedAt;
+  final String? completedBy;
+
+  final double? latitude;
+  final double? longitude;
+  final String? locationName;
+  final List<Map<String, dynamic>>? locationHistory;
+
   Task({
     String? id,
     required this.title,
@@ -21,8 +32,23 @@ class Task {
     this.dueDate,
     this.categoryId = 'default',
     this.reminderTime,
+    this.photoPath,
+    this.photosPaths,
+    this.completedAt,
+    this.completedBy,
+    this.latitude,
+    this.longitude,
+    this.locationName,
+    this.locationHistory,
   }) : id = id ?? const Uuid().v4(),
        createdAt = createdAt ?? DateTime.now();
+
+  bool get hasPhoto => photoPath != null && photoPath!.isNotEmpty;
+  bool get hasMultiplePhotos => photosPaths != null && photosPaths!.isNotEmpty;
+  bool get hasLocation => latitude != null && longitude != null;
+  bool get wasCompletedByShake => completedBy == 'shake';
+  bool get hasLocationHistory =>
+      locationHistory != null && locationHistory!.isNotEmpty;
 
   Map<String, dynamic> toMap() {
     return {
@@ -35,7 +61,23 @@ class Task {
       'dueDate': dueDate?.toIso8601String(),
       'categoryId': categoryId,
       'reminderTime': reminderTime?.toIso8601String(),
+      'photoPath': photoPath,
+      'photosPaths': photosPaths != null ? photosPaths!.join('|') : null,
+      'completedAt': completedAt?.toIso8601String(),
+      'completedBy': completedBy,
+      'latitude': latitude,
+      'longitude': longitude,
+      'locationName': locationName,
+      'locationHistory': locationHistory != null
+          ? _encodeLocationHistory(locationHistory!)
+          : null,
     };
+  }
+
+  String _encodeLocationHistory(List<Map<String, dynamic>> history) {
+    return history
+        .map((loc) => '${loc['lat']},${loc['lon']},${loc['timestamp']}')
+        .join('|');
   }
 
   factory Task.fromMap(Map<String, dynamic> map) {
@@ -51,7 +93,43 @@ class Task {
       reminderTime: map['reminderTime'] != null
           ? DateTime.parse(map['reminderTime'])
           : null,
+      photoPath: map['photoPath'] as String?,
+      photosPaths: map['photosPaths'] != null
+          ? (map['photosPaths'] as String)
+                .split('|')
+                .where((s) => s.isNotEmpty)
+                .toList()
+          : null,
+      completedAt: map['completedAt'] != null
+          ? DateTime.parse(map['completedAt'] as String)
+          : null,
+      completedBy: map['completedBy'] as String?,
+      latitude: map['latitude'] as double?,
+      longitude: map['longitude'] as double?,
+      locationName: map['locationName'] as String?,
+      locationHistory: map['locationHistory'] != null
+          ? _decodeLocationHistoryStatic(map['locationHistory'] as String)
+          : null,
     );
+  }
+
+  static List<Map<String, dynamic>> _decodeLocationHistoryStatic(
+    String encoded,
+  ) {
+    if (encoded.isEmpty) return [];
+    return encoded
+        .split('|')
+        .map((loc) {
+          final parts = loc.split(',');
+          if (parts.length < 3) return <String, dynamic>{};
+          return {
+            'lat': double.parse(parts[0]),
+            'lon': double.parse(parts[1]),
+            'timestamp': parts[2],
+          };
+        })
+        .where((loc) => loc.isNotEmpty)
+        .toList();
   }
 
   Task copyWith({
@@ -64,6 +142,14 @@ class Task {
     DateTime? reminderTime,
     bool clearDueDate = false,
     bool clearReminderTime = false,
+    String? photoPath,
+    List<String>? photosPaths,
+    DateTime? completedAt,
+    String? completedBy,
+    double? latitude,
+    double? longitude,
+    String? locationName,
+    List<Map<String, dynamic>>? locationHistory,
   }) {
     return Task(
       id: id,
@@ -77,6 +163,14 @@ class Task {
       reminderTime: clearReminderTime
           ? null
           : (reminderTime ?? this.reminderTime),
+      photoPath: photoPath ?? this.photoPath,
+      photosPaths: photosPaths ?? this.photosPaths,
+      completedAt: completedAt ?? this.completedAt,
+      completedBy: completedBy ?? this.completedBy,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      locationName: locationName ?? this.locationName,
+      locationHistory: locationHistory ?? this.locationHistory,
     );
   }
 

@@ -4,6 +4,193 @@ Aplicativo profissional de gerenciamento de tarefas desenvolvido em Flutter com 
 
 ---
 
+# Relatório - Laboratório 3: Recursos Nativos (Câmera, Sensores, GPS)
+
+## Funcionalidades AULA 3 Implementadas
+
+### Sistema de Câmera e Galeria
+
+- **Captura de Fotos**: Integração com câmera nativa (Android/iOS) usando `camera` package
+- **Galeria de Fotos**: Seleção de imagens existentes com `image_picker`
+- **Múltiplas Fotos por Tarefa**: Suporte para anexar várias imagens
+- **Visualização em Grid**: Interface visual para gerenciar fotos das tarefas
+- **Exclusão de Fotos**: Remover fotos individuais ou múltiplas
+- **Armazenamento Local**: Salvamento persistente em diretório da aplicação
+
+### Filtros de Foto (Atividade Extra)
+
+- **8 Filtros Disponíveis**: Nenhum, P&B, Sépia, Inverter, Brilho+, Brilho-, Contraste+, Contraste-, Blur, Sharpen
+- **Preview Interativo**: Visualização em tempo real dos filtros antes de aplicar
+- **Interface Horizontal**: Scroll horizontal para seleção fácil de filtros
+- **Aplicação em Tempo Real**: Filtros aplicados antes de salvar a foto
+- **Multiplataforma**: Funciona em Android, iOS e Windows (processamento puro Dart)
+
+### Sistema de Localização (GPS)
+
+- **Captura de Coordenadas**: Integração com GPS para obter latitude/longitude
+- **Geocodificação**: Conversão de coordenadas para endereços legíveis
+- **API Nominatim**: Geocoding cross-platform usando OpenStreetMap
+- **Picker de Localização**: Widget adaptável para definir localização de tarefas
+- **Validação de Permissões**: Gerenciamento de permissões de localização
+
+### Geofencing com Notificações (Atividade Extra)
+
+- **Monitoramento de Área**: Raio de 100m ao redor de tarefas com localização
+- **Notificações de Entrada**: Alerta quando usuário entra no raio da tarefa
+- **Notificações de Saída**: Alerta quando usuário sai do raio da tarefa
+- **Ícones Contextuais**: 📍 para entrada, 🚶 para saída
+- **Plataforma**: Android/iOS apenas (requer GPS contínuo)
+
+### Histórico de Localizações (Atividade Extra)
+
+- **Rastreamento Automático**: Salva todas as localizações onde tarefa foi acessada
+- **Timestamp Completo**: Data e hora de cada acesso
+- **Coordenadas**: Latitude e longitude armazenadas
+- **Endereço Legível**: Geocodificação reversa para cada entrada
+- **Multiplataforma**: Funciona em todas as plataformas (Android, iOS, Windows)
+
+### Sensores e Feedback Háptico
+
+- **Acelerômetro**: Detecção de movimento para shake
+- **Shake para Backup**: Agitar o dispositivo para fazer backup rápido
+- **Long Shake**: Agitar por 3 segundos para ações especiais
+- **Vibração**: Feedback tátil ao detectar shake
+- **Plataforma**: Android/iOS apenas (sensores físicos)
+
+## Arquitetura de Serviços (AULA 3)
+
+### CameraService
+
+- Singleton para gerenciamento centralizado
+- Inicialização assíncrona de câmeras disponíveis
+- Métodos: `takePicture()`, `pickFromGallery()`, `pickMultipleFromGallery()`
+- Navegação para tela customizada de câmera
+- Salvamento automático com nomenclatura única
+
+### PhotoFilterService (Extra)
+
+- Aplicação de 8 filtros diferentes
+- Algoritmos customizados (matriz sépia, blur, sharpen)
+- Geração de previews em baixa resolução (200px)
+- Encoding JPG com qualidade 85
+- Processamento assíncrono para performance
+
+### LocationService
+
+- Verificação de permissões e serviços
+- Captura de posição atual com GPS
+- Geocodificação usando Nominatim API (cross-platform)
+- Geofencing com raio configurável (100m)
+- Monitoramento contínuo de posição
+- Callbacks para eventos de entrada/saída
+
+### SensorService
+
+- Detecção de shake com acelerômetro
+- Calibração de magnitude (15.0 threshold)
+- Debounce de 500ms entre shakes
+- Timer de 3 segundos para long shake
+- Vibração customizada (pattern: 0ms, 200ms, 100ms, 200ms)
+
+### NotificationService (Estendido)
+
+- Canal específico para geofencing
+- Notificações com cores e ícones customizados
+- Prioridade alta para alertas de localização
+- Método `showGeofenceNotification(taskTitle, entered)`
+
+## Integrações AULA 3
+
+### Tela de Câmera (CameraScreen)
+
+- Preview em tempo real da câmera
+- Controle de flash (auto, on, off)
+- Troca entre câmera frontal/traseira
+- Botão de captura com animação
+- Salvamento automático após captura
+- Feedback visual de sucesso
+
+### Tela de Filtros (PhotoFilterScreen)
+
+- Grid horizontal de previews de filtros
+- Seleção visual com borda destacada
+- Aplicação do filtro selecionado
+- Indicador de progresso durante processamento
+- Retorno do caminho da foto filtrada
+
+### Formulário de Tarefa (TaskFormScreen)
+
+- Seção de fotos com grid visual
+- Opções: Tirar Foto / Escolher da Galeria
+- Dialog para escolher se aplica filtro
+- Visualização de fotos em grid 3 colunas
+- Exclusão de fotos individuais
+- Widget de Localização integrado
+- Histórico de localizações salvo automaticamente
+
+### Lista de Tarefas (TaskListScreen)
+
+- Setup de geofencing no `initState()`
+- Atualização de geofences após carregar tarefas
+- Stop de monitoramento no `dispose()`
+- Callback para notificações de geofence
+- Detecção de shake para backup rápido
+
+## Banco de Dados - Migração v5
+
+```sql
+ALTER TABLE tasks ADD COLUMN photos TEXT;           -- JSON array de caminhos
+ALTER TABLE tasks ADD COLUMN location TEXT;         -- JSON {lat, lng, address}
+ALTER TABLE tasks ADD COLUMN locationHistory TEXT;  -- JSON array de histórico
+```
+
+### Estrutura de Dados
+
+**Photos**: `["path/to/photo1.jpg", "path/to/photo2.jpg"]`
+
+**Location**: `{"latitude": -23.5505, "longitude": -46.6333, "address": "São Paulo, SP"}`
+
+**LocationHistory**:
+
+```json
+[
+  {
+    "timestamp": "2025-11-09T14:30:00.000",
+    "latitude": -23.5505,
+    "longitude": -46.6333,
+    "address": "São Paulo, SP, Brasil"
+  }
+]
+```
+
+## Estratégia Cross-Platform
+
+### ✅ Funciona em Windows
+
+- ✅ Galeria de fotos (image_picker)
+- ✅ GPS e geocodificação (Nominatim API)
+- ✅ Histórico de localizações
+- ✅ Armazenamento de fotos
+
+### ⚠️ Apenas Mobile (Android/iOS)
+
+- ⚠️ Câmera nativa (camera package)
+- ⚠️ Sensores (acelerômetro)
+- ⚠️ Vibração
+- ⚠️ Geofencing contínuo
+
+### Proteções Implementadas
+
+```dart
+if (Platform.isAndroid || Platform.isIOS) {
+  // Código específico de hardware
+}
+```
+
+Todas as features de hardware têm checks de plataforma para não quebrar em Windows.
+
+---
+
 # Relatório - Laboratório 2: Interface Profissional
 
 ## 1. Implementações Realizadas
@@ -243,6 +430,17 @@ Aplicativo profissional de gerenciamento de tarefas desenvolvido em Flutter com 
 - **flutter_local_notifications** - Notificações
 - **path_provider** - Acesso ao sistema de arquivos
 - **file_picker** - Seleção de arquivos
+
+### AULA 3 - Recursos Nativos
+
+- **camera** ^0.10.5+9 - Câmera nativa (Android/iOS)
+- **image_picker** ^1.0.7 - Galeria e picker de imagens
+- **sensors_plus** ^4.0.2 - Acelerômetro e sensores
+- **vibration** ^1.8.4 - Feedback háptico
+- **geolocator** ^10.1.0 - GPS e localização
+- **geocoding** ^2.1.1 - Geocodificação
+- **http** ^1.1.0 - Requisições HTTP (Nominatim API)
+- **image** ^4.1.3 - Processamento de imagens e filtros
 
 ## Como Executar
 

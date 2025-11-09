@@ -35,8 +35,13 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   
-  # Persistência de dados
-  shared_preferences: ^2.2.2
+  # SQLite para persistência de dados
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  uuid: ^4.2.1
+  intl: ^0.19.0
   
   # Animações
   animations: ^2.0.11
@@ -46,6 +51,16 @@ dependencies:
   
   # UI melhorada
   flutter_staggered_animations: ^1.1.1
+  
+  # Notificações locais
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.4
+  
+  # Permissões
+  permission_handler: ^11.3.1
+  
+  # File picker para importação
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

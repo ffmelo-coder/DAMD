@@ -68,7 +68,7 @@ dependencies:
   
   # Sensores (AULA 3)
   sensors_plus: ^4.0.2
-  vibration: ^1.8.4
+  vibration: ^2.0.0
   
   # GPS e Localização (AULA 3)
   geolocator: ^10.1.0

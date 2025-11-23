@@ -7,6 +7,7 @@ import '../models/task.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
+  static NotificationService get instance => _instance;
   factory NotificationService() => _instance;
   NotificationService._internal();
 
@@ -62,11 +63,21 @@ class NotificationService {
       importance: Importance.high,
     );
 
-    await _flutterLocalNotificationsPlugin
+    const AndroidNotificationChannel geofenceChannel =
+        AndroidNotificationChannel(
+          'geofence_alerts',
+          'Alertas de Localização',
+          description: 'Notificações quando você entra ou sai de áreas',
+          importance: Importance.high,
+        );
+
+    final androidImplementation = _flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+        >();
+
+    await androidImplementation?.createNotificationChannel(channel);
+    await androidImplementation?.createNotificationChannel(geofenceChannel);
   }
 
   void _onNotificationResponse(NotificationResponse response) {}
@@ -253,22 +264,25 @@ class NotificationService {
     await _flutterLocalNotificationsPlugin.cancelAll();
   }
 
-  Future<void> showGeofenceNotification(String taskTitle, bool entered) async {
+  Future<void> showGeofenceNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
     if (!_isSupported) return;
 
     try {
-      final icon = entered ? '📍' : '🚶';
-      final action = entered ? 'próximo' : 'distante';
-
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
             'geofence_alerts',
             'Alertas de Localização',
             channelDescription:
-                'Notificações quando você está perto de tarefas',
+                'Notificações quando você entra ou sai de áreas',
             importance: Importance.high,
             priority: Priority.high,
             color: Color(0xFF9C27B0),
+            playSound: true,
+            enableVibration: true,
           );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -285,9 +299,10 @@ class NotificationService {
 
       await _flutterLocalNotificationsPlugin.show(
         DateTime.now().millisecondsSinceEpoch % 100000,
-        '$icon Tarefa $action',
-        taskTitle,
+        title,
+        body,
         platformChannelSpecifics,
+        payload: payload,
       );
     } catch (e) {}
   }

@@ -1,0 +1,164 @@
+[
+  {
+    "id": "3076b074-1a80-451e-988a-3c8bacb8c92f",
+    "userId": "682449f7-29a5-4297-8339-7c0eff3ad537",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "active",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763908711474,
+        "id": "b0d0de38-c764-40c1-8334-4328161da8c3"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763908711444,
+    "updatedAt": 1763908711474
+  },
+  {
+    "id": "1caa826f-d820-461e-98b1-3e40fab4e965",
+    "userId": "feeb9141-910c-4725-a8a1-6a6d239a1483",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "active",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763909124867,
+        "id": "c396bb57-0cc3-4ed6-850e-8a9f9c36702c"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763909124837,
+    "updatedAt": 1763909124867
+  },
+  {
+    "id": "c0dbfb8f-206c-4aa9-bf7c-9db0ab1465ed",
+    "userId": "a5c4c9f3-8039-4dba-9f7e-adf4bab4a240",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "completed",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763909629112,
+        "id": "100a31fa-83f3-4be5-95c0-5b7085b53f8e"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763909629102,
+    "updatedAt": 1763909839670
+  },
+  {
+    "id": "4cf666a1-0729-4750-b9c1-b28979bfb496",
+    "userId": "dd09b647-87f8-4ba6-8bc9-88af131fd78c",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "completed",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763910192382,
+        "id": "4b14d3b5-210a-4e3a-9afc-5a69a3a415a1"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763910192371,
+    "updatedAt": 1763910192392
+  },
+  {
+    "id": "c24fbe88-45d0-4c18-960b-38dfef26d27f",
+    "userId": "8f556122-64ca-443b-b173-ebed2f0f8e54",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "completed",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763910656571,
+        "id": "fe5c0bd8-df0b-43ca-a895-98e9df19a78e"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763910656542,
+    "updatedAt": 1763910656581
+  },
+  {
+    "id": "3f6f6604-edf7-4765-bde2-ccf435076658",
+    "userId": "c65683b6-a028-43f3-8339-212a1e8df80a",
+    "name": "Compras semanais",
+    "description": "",
+    "status": "completed",
+    "items": [
+      {
+        "itemId": "1",
+        "itemName": "Arroz 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "estimatedPrice": 51,
+        "purchased": false,
+        "notes": "",
+        "addedAt": 1763911112156,
+        "id": "1e5089e6-5eab-40d2-a674-a2ba8191de94"
+      }
+    ],
+    "summary": {
+      "totalItems": 1,
+      "purchasedItems": 0,
+      "estimatedTotal": 51
+    },
+    "createdAt": 1763911112126,
+    "updatedAt": 1763911112167
+  }
+]

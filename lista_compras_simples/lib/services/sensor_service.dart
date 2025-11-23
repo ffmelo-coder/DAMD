@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:vibration/vibration.dart';
 
 class SensorService {
   static final SensorService instance = SensorService._init();
@@ -13,12 +12,17 @@ class SensorService {
 
   static const double _shakeThreshold = 15.0;
   static const Duration _shakeCooldown = Duration(milliseconds: 500);
-  static const Duration _longShakeDuration = Duration(seconds: 3);
+  static const Duration _longShakeDuration = Duration(seconds: 6);
+  static const Duration _maxShakePause = Duration(
+    seconds: 1,
+  ); // Pausa máxima permitida
 
   DateTime? _lastShakeTime;
+  DateTime? _shakeStartTime;
   bool _isActive = false;
   bool _isShaking = false;
   Timer? _longShakeTimer;
+  Timer? _shakePauseTimer;
 
   bool get isActive => _isActive;
 
@@ -57,27 +61,47 @@ class SensorService {
     );
 
     if (magnitude > _shakeThreshold) {
-      print('🔳 Shake! Magnitude: ${magnitude.toStringAsFixed(2)}');
       _lastShakeTime = now;
 
+      // Cancela o timer de pausa se existir
+      _shakePauseTimer?.cancel();
+
       if (!_isShaking) {
+        // Primeiro shake - inicia o timer
         _isShaking = true;
+        _shakeStartTime = now;
+        print('🔳 Shake iniciado! Magnitude: ${magnitude.toStringAsFixed(2)}');
 
         _longShakeTimer?.cancel();
         _longShakeTimer = Timer(_longShakeDuration, () {
           if (_isShaking && _onLongShake != null) {
-            print('🌀 Shake longo detectado (3 segundos)!');
-            _vibrateDevice();
+            print('🌀 Shake longo detectado (6 segundos)!');
             _onLongShake?.call();
             _resetShakeState();
           }
         });
+      } else {
+        // Shake contínuo - apenas atualiza o tempo
+        print(
+          '🔳 Shake contínuo... Magnitude: ${magnitude.toStringAsFixed(2)}',
+        );
       }
 
-      _vibrateDevice();
+      // Inicia timer para detectar pausa
+      _shakePauseTimer?.cancel();
+      _shakePauseTimer = Timer(_maxShakePause, () {
+        // Se passou 1 segundo sem shake, cancela
+        if (_isShaking) {
+          print('⏹️ Shake interrompido (pausa detectada)');
+          _resetShakeState();
+        }
+      });
+
       _onShake?.call();
     } else {
-      if (_isShaking && magnitude < _shakeThreshold * 0.5) {
+      // Se não está mais agitando, cancela o timer
+      if (_isShaking && magnitude < _shakeThreshold * 0.3) {
+        print('⏹️ Shake interrompido');
         _resetShakeState();
       }
     }
@@ -85,18 +109,10 @@ class SensorService {
 
   void _resetShakeState() {
     _isShaking = false;
+    _shakeStartTime = null;
     _longShakeTimer?.cancel();
-  }
-
-  Future<void> _vibrateDevice() async {
-    try {
-      final hasVibrator = await Vibration.hasVibrator();
-      if (hasVibrator == true) {
-        await Vibration.vibrate(duration: 100);
-      }
-    } catch (e) {
-      print('⚠️ Vibração não suportada: $e');
-    }
+    _shakePauseTimer?.cancel();
+    print('🔄 Estado de shake resetado');
   }
 
   void stop() {
@@ -104,6 +120,8 @@ class SensorService {
     _accelerometerSubscription = null;
     _longShakeTimer?.cancel();
     _longShakeTimer = null;
+    _shakePauseTimer?.cancel();
+    _shakePauseTimer = null;
     _onShake = null;
     _onLongShake = null;
     _isActive = false;

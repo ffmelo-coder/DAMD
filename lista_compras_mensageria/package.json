@@ -1,0 +1,25 @@
+{
+  "name": "lista-compras-microservices",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:user": "node services/user/index.js",
+    "start:item": "node services/item/index.js",
+    "start:list": "node services/list/index.js",
+    "start:gateway": "node gateway/index.js",
+    "start:notify": "node services/consumers/notify.js",
+    "start:analytics": "node services/consumers/analytics.js",
+    "demo": "node client-demo.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "express": "^4.18.2",
+    "json-web-token": "^2.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "node-fetch": "^2.6.7",
+    "uuid": "^9.0.0",
+    "amqplib": "^0.10.3"
+  }
+}
+

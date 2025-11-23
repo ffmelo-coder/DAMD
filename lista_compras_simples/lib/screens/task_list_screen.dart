@@ -92,7 +92,13 @@ class _TaskListScreenState extends State<TaskListScreen> {
           orElse: () => _tasks.first,
         );
         if (task.id == geofenceId) {
-          NotificationService().showGeofenceNotification(task.title, entered);
+          final icon = entered ? '📍' : '🚶';
+          final action = entered ? 'próximo de' : 'distante de';
+          NotificationService.instance.showGeofenceNotification(
+            title: '$icon Você está $action uma tarefa',
+            body: task.title,
+            payload: task.id,
+          );
         }
       });
     }

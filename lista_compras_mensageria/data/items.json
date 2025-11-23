@@ -1,0 +1,22 @@
+[
+  { "id": "1", "name": "Arroz 5kg", "category": "Alimentos", "brand": "MarcaA", "unit": "kg", "averagePrice": 25.5, "barcode": "0001", "description": "Arroz tipo 1", "active": true, "createdAt": 1620000000000 },
+  { "id": "2", "name": "Feijão 1kg", "category": "Alimentos", "brand": "MarcaB", "unit": "kg", "averagePrice": 8.2, "barcode": "0002", "description": "Feijão carioca", "active": true, "createdAt": 1620000000001 },
+  { "id": "3", "name": "Macarrão 500g", "category": "Alimentos", "brand": "MarcaC", "unit": "un", "averagePrice": 4.5, "barcode": "0003", "description": "Macarrão espaguete", "active": true, "createdAt": 1620000000002 },
+  { "id": "4", "name": "Óleo de Soja 900ml", "category": "Alimentos", "brand": "MarcaD", "unit": "litro", "averagePrice": 7.0, "barcode": "0004", "description": "Óleo", "active": true, "createdAt": 1620000000003 },
+  { "id": "5", "name": "Açúcar 1kg", "category": "Alimentos", "brand": "MarcaE", "unit": "kg", "averagePrice": 3.9, "barcode": "0005", "description": "Açúcar refinado", "active": true, "createdAt": 1620000000004 },
+  { "id": "6", "name": "Detergente 500ml", "category": "Limpeza", "brand": "MarcaF", "unit": "un", "averagePrice": 2.5, "barcode": "0010", "description": "Detergente líquido", "active": true, "createdAt": 1620000000010 },
+  { "id": "7", "name": "Sabão em pó 2kg", "category": "Limpeza", "brand": "MarcaG", "unit": "kg", "averagePrice": 18.0, "barcode": "0011", "description": "Sabão em pó", "active": true, "createdAt": 1620000000011 },
+  { "id": "8", "name": "Desinfetante 1L", "category": "Limpeza", "brand": "MarcaH", "unit": "litro", "averagePrice": 6.5, "barcode": "0012", "description": "Desinfetante multiuso", "active": true, "createdAt": 1620000000012 },
+  { "id": "9", "name": "Papel Higiênico 4un", "category": "Higiene", "brand": "MarcaI", "unit": "un", "averagePrice": 12.0, "barcode": "0020", "description": "Papel higiênico", "active": true, "createdAt": 1620000000020 },
+  { "id": "10", "name": "Sabonete", "category": "Higiene", "brand": "MarcaJ", "unit": "un", "averagePrice": 1.8, "barcode": "0021", "description": "Sabonete em barra", "active": true, "createdAt": 1620000000021 },
+  { "id": "11", "name": "Shampoo 300ml", "category": "Higiene", "brand": "MarcaK", "unit": "un", "averagePrice": 9.5, "barcode": "0022", "description": "Shampoo hidratante", "active": true, "createdAt": 1620000000022 },
+  { "id": "12", "name": "Condicionador 300ml", "category": "Higiene", "brand": "MarcaL", "unit": "un", "averagePrice": 9.5, "barcode": "0023", "description": "Condicionador", "active": true, "createdAt": 1620000000023 },
+  { "id": "13", "name": "Refrigerante 2L", "category": "Bebidas", "brand": "MarcaM", "unit": "litro", "averagePrice": 7.9, "barcode": "0030", "description": "Refrigerante cola", "active": true, "createdAt": 1620000000030 },
+  { "id": "14", "name": "Suco 1L", "category": "Bebidas", "brand": "MarcaN", "unit": "litro", "averagePrice": 5.5, "barcode": "0031", "description": "Suco de laranja", "active": true, "createdAt": 1620000000031 },
+  { "id": "15", "name": "Água Mineral 1.5L", "category": "Bebidas", "brand": "MarcaO", "unit": "litro", "averagePrice": 3.0, "barcode": "0032", "description": "Água sem gás", "active": true, "createdAt": 1620000000032 },
+  { "id": "16", "name": "Cerveja 350ml", "category": "Bebidas", "brand": "MarcaP", "unit": "un", "averagePrice": 4.2, "barcode": "0033", "description": "Cerveja lata", "active": true, "createdAt": 1620000000033 },
+  { "id": "17", "name": "Queijo 200g", "category": "Alimentos", "brand": "MarcaQ", "unit": "un", "averagePrice": 12.5, "barcode": "0006", "description": "Queijo prato", "active": true, "createdAt": 1620000000005 },
+  { "id": "18", "name": "Leite 1L", "category": "Alimentos", "brand": "MarcaR", "unit": "litro", "averagePrice": 4.8, "barcode": "0007", "description": "Leite integral", "active": true, "createdAt": 1620000000006 },
+  { "id": "19", "name": "Amaciante 2L", "category": "Limpeza", "brand": "MarcaS", "unit": "litro", "averagePrice": 13.0, "barcode": "0013", "description": "Amaciante concentrado", "active": true, "createdAt": 1620000000013 },
+  { "id": "20", "name": "Pasta de Dente", "category": "Higiene", "brand": "MarcaT", "unit": "un", "averagePrice": 6.0, "barcode": "0024", "description": "Pasta para dentes sensíveis", "active": true, "createdAt": 1620000000024 }
+]

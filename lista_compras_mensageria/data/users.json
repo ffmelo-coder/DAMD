@@ -1,0 +1,68 @@
+[
+  {
+    "id": "682449f7-29a5-4297-8339-7c0eff3ad537",
+    "email": "demo+1763908711185@example.com",
+    "username": "demouser",
+    "password": "$2a$10$k4zrTbixAt3eu33WMsXjgOSLGpJNmFOw4I8FK6Q4oBAzmoSXLIyJ.",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763908711318,
+    "updatedAt": 1763908711318
+  },
+  {
+    "id": "feeb9141-910c-4725-a8a1-6a6d239a1483",
+    "email": "demo+1763909124603@example.com",
+    "username": "demouser",
+    "password": "$2a$10$4w1vEc1obSzxBZWznf40U.GJTd0Zh.e79p7ph532NqQV1QZ.AgwU2",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763909124731,
+    "updatedAt": 1763909124731
+  },
+  {
+    "id": "a5c4c9f3-8039-4dba-9f7e-adf4bab4a240",
+    "email": "demo+1763909628894@example.com",
+    "username": "demouser",
+    "password": "$2a$10$oxDSlhWgX3ZaCbP.gxwMZe31cLAjYYzvqcKN.2AhXJJ7VuY.1VZ7O",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763909629005,
+    "updatedAt": 1763909629005
+  },
+  {
+    "id": "dd09b647-87f8-4ba6-8bc9-88af131fd78c",
+    "email": "demo+1763910192148@example.com",
+    "username": "demouser",
+    "password": "$2a$10$D6FpLN5p9JEFDXWt8p6NWO7zagYy.puKr2e.nkjZMnyMpocfPDMmu",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763910192271,
+    "updatedAt": 1763910192271
+  },
+  {
+    "id": "8f556122-64ca-443b-b173-ebed2f0f8e54",
+    "email": "demo+1763910656277@example.com",
+    "username": "demouser",
+    "password": "$2a$10$SftnCPn1z3wzwNqWrYM0iePmcWf5sECMkM7VGjNhpgnmKQLO0QuPy",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763910656416,
+    "updatedAt": 1763910656416
+  },
+  {
+    "id": "c65683b6-a028-43f3-8339-212a1e8df80a",
+    "email": "demo+1763911111867@example.com",
+    "username": "demouser",
+    "password": "$2a$10$EDlZoIzca/KTCHkzA26kYOwzat9T/aYuF1fwSb2Cdvx9BZvJLaHl.",
+    "firstName": "",
+    "lastName": "",
+    "preferences": {},
+    "createdAt": 1763911112000,
+    "updatedAt": 1763911112000
+  }
+]

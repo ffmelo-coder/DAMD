@@ -104,8 +104,12 @@ class Task {
           ? DateTime.parse(map['completedAt'] as String)
           : null,
       completedBy: map['completedBy'] as String?,
-      latitude: map['latitude'] as double?,
-      longitude: map['longitude'] as double?,
+      latitude: map['latitude'] != null
+          ? (map['latitude'] as num).toDouble()
+          : null,
+      longitude: map['longitude'] != null
+          ? (map['longitude'] as num).toDouble()
+          : null,
       locationName: map['locationName'] as String?,
       locationHistory: map['locationHistory'] != null
           ? _decodeLocationHistoryStatic(map['locationHistory'] as String)
@@ -119,14 +123,18 @@ class Task {
     if (encoded.isEmpty) return [];
     return encoded
         .split('|')
+        .where((loc) => loc.isNotEmpty)
         .map((loc) {
-          final parts = loc.split(',');
-          if (parts.length < 3) return <String, dynamic>{};
-          return {
-            'lat': double.parse(parts[0]),
-            'lon': double.parse(parts[1]),
-            'timestamp': parts[2],
-          };
+          try {
+            final parts = loc.split(',');
+            if (parts.length < 3) return <String, dynamic>{};
+            final lat = double.tryParse(parts[0].trim());
+            final lon = double.tryParse(parts[1].trim());
+            if (lat == null || lon == null) return <String, dynamic>{};
+            return {'lat': lat, 'lon': lon, 'timestamp': parts[2].trim()};
+          } catch (e) {
+            return <String, dynamic>{};
+          }
         })
         .where((loc) => loc.isNotEmpty)
         .toList();

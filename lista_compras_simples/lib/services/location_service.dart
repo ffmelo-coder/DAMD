@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
+import 'notification_service.dart';
 
 class LocationService {
   static final LocationService instance = LocationService._init();
@@ -251,7 +252,7 @@ class LocationService {
 
   final Map<String, bool> _insideGeofence = {};
 
-  void _checkGeofences(Position position) {
+  void _checkGeofences(Position position) async {
     for (final entry in _geofences.entries) {
       final geofence = entry.value;
       final distance = calculateDistance(
@@ -267,7 +268,30 @@ class LocationService {
       if (isInside != wasInside) {
         _insideGeofence[geofence.id] = isInside;
         _onGeofenceEvent?.call(geofence.id, isInside);
-        print('🔔 Geofence ${geofence.id}: ${isInside ? "Entrou" : "Saiu"}');
+
+        // Enviar notificação
+        final locationName =
+            await getAddressFromCoordinates(
+              geofence.latitude,
+              geofence.longitude,
+            ) ??
+            'Local definido';
+
+        if (isInside) {
+          await NotificationService.instance.showGeofenceNotification(
+            title: '📍 Você entrou na área!',
+            body: 'Você está próximo de: $locationName',
+            payload: geofence.id,
+          );
+          print('🔔 Geofence ${geofence.id}: Entrou - $locationName');
+        } else {
+          await NotificationService.instance.showGeofenceNotification(
+            title: '🚶 Você saiu da área',
+            body: 'Você se afastou de: $locationName',
+            payload: geofence.id,
+          );
+          print('🔔 Geofence ${geofence.id}: Saiu - $locationName');
+        }
       }
     }
   }

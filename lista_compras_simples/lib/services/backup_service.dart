@@ -46,7 +46,7 @@ class BackupService {
       }
       return null;
     } catch (e) {
-      print('Erro ao exportar para armazenamento: ');
+      debugPrint('Erro ao exportar para armazenamento: $e');
       return null;
     }
   }
@@ -60,7 +60,7 @@ class BackupService {
       }
       return false;
     } catch (e) {
-      print('Erro ao compartilhar backup: ');
+      debugPrint('Erro ao compartilhar backup: $e');
       return false;
     }
   }
@@ -81,7 +81,7 @@ class BackupService {
       }
       return false;
     } catch (e) {
-      print('Erro ao importar: ');
+      debugPrint('Erro ao importar: $e');
       return false;
     }
   }
@@ -96,7 +96,7 @@ class BackupService {
       );
       await file.writeAsString(jsonString);
     } catch (e) {
-      print('Erro no backup automático: ');
+      debugPrint('Erro no backup automático: $e');
     }
   }
 
@@ -118,7 +118,7 @@ class BackupService {
       );
       return files;
     } catch (e) {
-      print('Erro ao listar backups: ');
+      debugPrint('Erro ao listar backups: $e');
       return [];
     }
   }
@@ -130,7 +130,7 @@ class BackupService {
       await _databaseService.importFromJson(data);
       return true;
     } catch (e) {
-      print('Erro ao restaurar backup: ');
+      debugPrint('Erro ao restaurar backup: $e');
       return false;
     }
   }

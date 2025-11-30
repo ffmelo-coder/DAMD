@@ -74,6 +74,7 @@ dependencies:
   geolocator: ^10.1.0
   geocoding: ^2.1.1
   http: ^1.1.0
+  connectivity_plus: ^7.0.0
   
   # Filtros de Imagem (AULA 3 - Atividade)
   image: ^4.1.3

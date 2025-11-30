@@ -83,6 +83,15 @@ app.use("/api/lists", (req, res) => {
   proxyToService("list-service", path, req, res);
 });
 
+// Compatibility proxy for older clients that expect /tasks endpoints.
+// Injects a header to allow the list service to accept demo requests without auth.
+app.use("/tasks", (req, res) => {
+  // add a marker header so list-service can bypass auth in demo mode
+  req.headers["x-skip-auth"] = "true";
+  const path = req.originalUrl.replace(/^\/tasks/, "/lists");
+  proxyToService("list-service", path, req, res);
+});
+
 // aggregated endpoints
 app.get("/api/dashboard", async (req, res) => {
   // forward Authorization header

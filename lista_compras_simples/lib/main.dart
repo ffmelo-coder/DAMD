@@ -3,6 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'screens/task_list_screen.dart';
 import 'services/camera_service.dart';
+import 'services/sync_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,9 @@ void main() async {
   }
 
   await CameraService.instance.initialize();
+
+  SyncManager.instance.setAutoSyncEnabled(true);
+  SyncManager.instance.start();
 
   runApp(const MyApp());
 }

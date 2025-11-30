@@ -1,5 +1,6 @@
 ﻿import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as fnd;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -52,6 +53,7 @@ class NotificationService {
       await _createNotificationChannel();
     } catch (e) {
       _isSupported = false;
+      fnd.debugPrint('NotificationService.initialize error: $e');
     }
   }
 
@@ -127,7 +129,9 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: task.id,
       );
-    } catch (e) {}
+    } catch (e) {
+      fnd.debugPrint('Error scheduling task reminder: $e');
+    }
   }
 
   Future<void> cancelTaskReminder(String taskId) async {
@@ -135,7 +139,9 @@ class NotificationService {
 
     try {
       await _flutterLocalNotificationsPlugin.cancel(taskId.hashCode);
-    } catch (e) {}
+    } catch (e) {
+      fnd.debugPrint('Error cancelling task reminder: $e');
+    }
   }
 
   Future<void> scheduleOverdueAlert(Task task) async {
@@ -174,7 +180,9 @@ class NotificationService {
         platformChannelSpecifics,
         payload: task.id,
       );
-    } catch (e) {}
+    } catch (e) {
+      fnd.debugPrint('Error scheduling overdue alert: $e');
+    }
   }
 
   Future<void> scheduleDueTodayAlert(List<Task> tasks) async {
@@ -186,7 +194,7 @@ class NotificationService {
       final message = taskCount == 1
           ? taskNames
           : taskCount <= 3
-          ? '$taskNames'
+          ? taskNames
           : '$taskNames e mais ${taskCount - 3}';
 
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -220,7 +228,9 @@ class NotificationService {
         message,
         platformChannelSpecifics,
       );
-    } catch (e) {}
+    } catch (e) {
+      fnd.debugPrint('Error scheduling due-today alert: $e');
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -304,6 +314,8 @@ class NotificationService {
         platformChannelSpecifics,
         payload: payload,
       );
-    } catch (e) {}
+    } catch (e) {
+      fnd.debugPrint('Error showing geofence notification: $e');
+    }
   }
 }

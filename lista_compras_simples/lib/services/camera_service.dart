@@ -16,11 +16,11 @@ class CameraService {
   Future<void> initialize() async {
     try {
       _cameras = await availableCameras();
-      print(
+      debugPrint(
         '✅ CameraService: ${_cameras?.length ?? 0} câmera(s) encontrada(s)',
       );
     } catch (e) {
-      print('⚠️ Erro ao inicializar câmera: $e');
+      debugPrint('⚠️ Erro ao inicializar câmera: $e');
       _cameras = [];
     }
   }
@@ -62,7 +62,7 @@ class CameraService {
 
       return imagePath;
     } catch (e) {
-      print('❌ Erro ao abrir câmera: $e');
+      debugPrint('❌ Erro ao abrir câmera: $e');
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +90,7 @@ class CameraService {
       }
       return null;
     } catch (e) {
-      print('❌ Erro ao selecionar da galeria: $e');
+      debugPrint('❌ Erro ao selecionar da galeria: $e');
       return null;
     }
   }
@@ -107,7 +107,7 @@ class CameraService {
 
       return savedPaths;
     } catch (e) {
-      print('❌ Erro ao selecionar múltiplas fotos: $e');
+      debugPrint('❌ Erro ao selecionar múltiplas fotos: $e');
       return [];
     }
   }
@@ -124,10 +124,10 @@ class CameraService {
       }
 
       final savedImage = await File(image.path).copy(savePath);
-      print('✅ Foto salva: ${savedImage.path}');
+      debugPrint('✅ Foto salva: ${savedImage.path}');
       return savedImage.path;
     } catch (e) {
-      print('❌ Erro ao salvar foto: $e');
+      debugPrint('❌ Erro ao salvar foto: $e');
       rethrow;
     }
   }
@@ -141,7 +141,7 @@ class CameraService {
       }
       return false;
     } catch (e) {
-      print('❌ Erro ao deletar foto: $e');
+      debugPrint('❌ Erro ao deletar foto: $e');
       return false;
     }
   }

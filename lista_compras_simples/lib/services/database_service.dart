@@ -1,6 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' as fnd;
 import '../models/task.dart';
 import '../models/category.dart';
 
@@ -8,7 +12,64 @@ class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
 
+  void Function()? onLocalChange;
+
   DatabaseService._init();
+
+  final StreamController<void> _ChangeController =
+      StreamController<void>.broadcast();
+
+  Stream<void> get onDatabaseChanged => _ChangeController.stream;
+
+  Timer? _changeDebounceTimer;
+
+  final Duration _changeDebounceDuration = const Duration(milliseconds: 800);
+
+  int _suspendChangeCount = 0;
+  bool _pendingChangeWhileSuspended = false;
+
+  void _emitChangeDebounced() {
+    if (_suspendChangeCount > 0) {
+      _pendingChangeWhileSuspended = true;
+      try {
+        fnd.debugPrint(
+          '[DatabaseService] change suppressed (suspendCount=$_suspendChangeCount)',
+        );
+      } catch (_) {}
+      return;
+    }
+    try {
+      _changeDebounceTimer?.cancel();
+    } catch (_) {}
+    _changeDebounceTimer = Timer(_changeDebounceDuration, () {
+      try {
+        fnd.debugPrint('[DatabaseService] emitting debounced DB change');
+        _ChangeController.add(null);
+      } catch (_) {}
+    });
+  }
+
+  void startChangeBatch() {
+    _suspendChangeCount++;
+    try {
+      fnd.debugPrint(
+        '[DatabaseService] startChangeBatch count=$_suspendChangeCount',
+      );
+    } catch (_) {}
+  }
+
+  void finishChangeBatch() {
+    if (_suspendChangeCount > 0) _suspendChangeCount--;
+    try {
+      fnd.debugPrint(
+        '[DatabaseService] finishChangeBatch count=$_suspendChangeCount pending=$_pendingChangeWhileSuspended',
+      );
+    } catch (_) {}
+    if (_suspendChangeCount == 0 && _pendingChangeWhileSuspended) {
+      _pendingChangeWhileSuspended = false;
+      _emitChangeDebounced();
+    }
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -27,7 +88,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -43,6 +104,8 @@ class DatabaseService {
         priority TEXT NOT NULL,
         createdAt TEXT NOT NULL,
         dueDate TEXT,
+        updatedAt TEXT,
+        synced INTEGER DEFAULT 0,
         categoryId TEXT,
         reminderTime TEXT,
         photoPath TEXT,
@@ -69,6 +132,16 @@ class DatabaseService {
     for (final category in categories) {
       await db.insert('categories', category.toMap());
     }
+
+    await db.execute('''
+      CREATE TABLE sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        taskId TEXT,
+        action TEXT,
+        payload TEXT,
+        timestamp TEXT
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -108,33 +181,67 @@ class DatabaseService {
       await db.execute('ALTER TABLE tasks ADD COLUMN locationName TEXT');
       await db.execute('ALTER TABLE tasks ADD COLUMN locationHistory TEXT');
     }
+
+    if (oldVersion < 6) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN updatedAt TEXT');
+      } catch (e) {
+        fnd.debugPrint('Info: could not add updatedAt column: $e');
+      }
+      try {
+        await db.execute(
+          'ALTER TABLE tasks ADD COLUMN synced INTEGER DEFAULT 0',
+        );
+      } catch (e) {
+        fnd.debugPrint('Info: could not add synced column: $e');
+      }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sync_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          taskId TEXT,
+          action TEXT,
+          payload TEXT,
+          timestamp TEXT
+        )
+      ''');
+    }
   }
 
   Future<Task> create(Task task) async {
     final db = await instance.database;
-    await db.insert('tasks', task.toMap());
+    final map = task.toMap();
+
+    map['updatedAt'] = task.updatedAt.toIso8601String();
+    map['synced'] = task.synced ? 1 : 0;
+    await db.insert('tasks', map);
+
+    await db.insert('sync_queue', {
+      'taskId': task.id,
+      'action': 'create',
+      'payload': jsonEncode(map),
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    try {
+      fnd.debugPrint(
+        '[DatabaseService] create: notifying onLocalChange for task ${task.id}',
+      );
+      onLocalChange?.call();
+
+      _emitChangeDebounced();
+    } catch (e) {
+      fnd.debugPrint(
+        '[DatabaseService] create: onLocalChange threw: ${e.toString()}',
+      );
+    }
     return task;
   }
 
   Future<Task?> read(String id) async {
     final db = await instance.database;
 
-    final maps = await db.query(
-      'tasks',
-      columns: [
-        'id',
-        'title',
-        'description',
-        'completed',
-        'priority',
-        'createdAt',
-        'dueDate',
-        'categoryId',
-        'reminderTime',
-      ],
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query('tasks', where: 'id = ?', whereArgs: [id]);
 
     if (maps.isNotEmpty) {
       return Task.fromMap(maps.first);
@@ -315,17 +422,385 @@ class DatabaseService {
   Future<int> update(Task task) async {
     final db = await instance.database;
 
-    return db.update(
+    final map = task.toMap();
+    map['updatedAt'] = DateTime.now().toIso8601String();
+    map['synced'] = 0;
+
+    final res = await db.update(
       'tasks',
-      task.toMap(),
+      map,
       where: 'id = ?',
       whereArgs: [task.id],
     );
+
+    await db.insert('sync_queue', {
+      'taskId': task.id,
+      'action': 'update',
+      'payload': jsonEncode(map),
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    try {
+      fnd.debugPrint(
+        '[DatabaseService] update: notifying onLocalChange for task ${task.id}',
+      );
+      onLocalChange?.call();
+
+      _emitChangeDebounced();
+    } catch (e) {
+      fnd.debugPrint(
+        '[DatabaseService] update: onLocalChange threw: ${e.toString()}',
+      );
+    }
+
+    return res;
   }
 
   Future<int> delete(String id) async {
     final db = await instance.database;
+
+    await db.insert('sync_queue', {
+      'taskId': id,
+      'action': 'delete',
+      'payload': jsonEncode({'id': id}),
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    try {
+      fnd.debugPrint(
+        '[DatabaseService] delete: notifying onLocalChange for task $id',
+      );
+      onLocalChange?.call();
+
+      _emitChangeDebounced();
+    } catch (e) {
+      fnd.debugPrint(
+        '[DatabaseService] delete: onLocalChange threw: ${e.toString()}',
+      );
+    }
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteLocalOnly(String id) async {
+    final db = await instance.database;
+    final res = await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+    try {
+      _emitChangeDebounced();
+    } catch (_) {}
+    return res;
+  }
+
+  Future<bool> hasPendingDelete(String taskId) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'sync_queue',
+      where: 'taskId = ? AND action = ?',
+      whereArgs: [taskId, 'delete'],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> enqueueSync(
+    String taskId,
+    String action,
+    Map<String, dynamic> payload,
+  ) async {
+    final db = await instance.database;
+    return await db.insert('sync_queue', {
+      'taskId': taskId,
+      'action': action,
+      'payload': jsonEncode(payload),
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingSyncs() async {
+    final db = await instance.database;
+    final rows = await db.query('sync_queue', orderBy: 'id ASC');
+    return rows.map((r) => r.cast<String, dynamic>()).toList();
+  }
+
+  Future<int> clearPendingSyncs() async {
+    final db = await instance.database;
+    final removed = await db.delete('sync_queue');
+    try {
+      _emitChangeDebounced();
+    } catch (_) {}
+    return removed;
+  }
+
+  Future<int> deleteSyncEntry(int id) async {
+    final db = await instance.database;
+    return await db.delete('sync_queue', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> markTaskAsSynced(String id) async {
+    final db = await instance.database;
+    final res = await db.update(
+      'tasks',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    try {
+      _emitChangeDebounced();
+    } catch (_) {}
+    return res;
+  }
+
+  Future<void> upsertTaskFromMap(Map<String, dynamic> map) async {
+    final db = await instance.database;
+
+    final id =
+        map['id']?.toString() ??
+        (map['taskId']?.toString() ??
+            DateTime.now().millisecondsSinceEpoch.toString());
+    final serverUpdatedStr =
+        map['updatedAt']?.toString() ?? map['updated_at']?.toString();
+    final DateTime? serverUpdated = serverUpdatedStr != null
+        ? DateTime.tryParse(serverUpdatedStr)
+        : null;
+
+    final localRows = await db.query(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (localRows.isNotEmpty) {
+      final local = localRows.first;
+      final localUpdatedStr = local['updatedAt']?.toString();
+      final DateTime? localUpdated = localUpdatedStr != null
+          ? DateTime.tryParse(localUpdatedStr)
+          : null;
+
+      final pending = await db.query(
+        'sync_queue',
+        where: 'taskId = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (pending.isNotEmpty) {
+        try {
+          _emitChangeDebounced();
+        } catch (_) {}
+        return;
+      }
+
+      if (localUpdated != null &&
+          serverUpdated != null &&
+          localUpdated.isAfter(serverUpdated)) {
+        try {
+          _emitChangeDebounced();
+        } catch (_) {}
+        return;
+      }
+    }
+
+    final normalized = <String, dynamic>{};
+
+    Map<String, dynamic>? local;
+    if (localRows.isNotEmpty) {
+      local = Map<String, dynamic>.from(
+        localRows.first.cast<String, dynamic>(),
+      );
+    }
+
+    bool isMeaningful(dynamic v) {
+      if (v == null) return false;
+      if (v is String) return v.trim().isNotEmpty;
+      if (v is num) return true;
+      if (v is List) return v.isNotEmpty;
+      if (v is Map) return v.isNotEmpty;
+      return true;
+    }
+
+    normalized['id'] = id;
+
+    final serverTitle = map['title'] ?? map['name'];
+    if (isMeaningful(serverTitle)) {
+      normalized['title'] = serverTitle.toString();
+    } else if (local != null && isMeaningful(local['title'])) {
+      normalized['title'] = local['title'].toString();
+    } else {
+      normalized['title'] = '';
+    }
+
+    if (isMeaningful(map['description'])) {
+      normalized['description'] = map['description'].toString();
+    } else if (isMeaningful(map['items'])) {
+      try {
+        normalized['description'] = jsonEncode(map['items']);
+      } catch (_) {
+        normalized['description'] = map['items'].toString();
+      }
+    } else if (isMeaningful(map['summary'])) {
+      try {
+        normalized['description'] = jsonEncode(map['summary']);
+      } catch (_) {
+        normalized['description'] = map['summary'].toString();
+      }
+    } else if (local != null && isMeaningful(local['description'])) {
+      normalized['description'] = local['description'].toString();
+    } else {
+      normalized['description'] = '';
+    }
+
+    if (map.containsKey('completed') && isMeaningful(map['completed'])) {
+      normalized['completed'] =
+          (map['completed'] == true || map['completed'] == 1) ? 1 : 0;
+    } else if (local != null && isMeaningful(local['completed'])) {
+      normalized['completed'] =
+          (local['completed'] == 1 || local['completed'] == true) ? 1 : 0;
+    } else {
+      normalized['completed'] = 0;
+    }
+
+    if (isMeaningful(map['priority'])) {
+      normalized['priority'] = map['priority'].toString();
+    } else if (local != null && isMeaningful(local['priority'])) {
+      normalized['priority'] = local['priority'].toString();
+    } else {
+      normalized['priority'] = 'medium';
+    }
+
+    if (isMeaningful(map['createdAt'])) {
+      normalized['createdAt'] = map['createdAt'].toString();
+    } else if (local != null && isMeaningful(local['createdAt'])) {
+      normalized['createdAt'] = local['createdAt'].toString();
+    } else {
+      normalized['createdAt'] = DateTime.now().toIso8601String();
+    }
+    if (isMeaningful(map['updatedAt'])) {
+      normalized['updatedAt'] = map['updatedAt'].toString();
+    } else if (local != null && isMeaningful(local['updatedAt'])) {
+      normalized['updatedAt'] = local['updatedAt'].toString();
+    } else {
+      normalized['updatedAt'] = normalized['createdAt'];
+    }
+
+    if (isMeaningful(map['dueDate'])) {
+      normalized['dueDate'] = map['dueDate'].toString();
+    } else if (local != null && isMeaningful(local['dueDate'])) {
+      normalized['dueDate'] = local['dueDate'].toString();
+    } else {
+      normalized['dueDate'] = null;
+    }
+
+    normalized['synced'] = 1;
+
+    if (isMeaningful(map['categoryId'])) {
+      normalized['categoryId'] = map['categoryId'].toString();
+    } else if (local != null && isMeaningful(local['categoryId'])) {
+      normalized['categoryId'] = local['categoryId'].toString();
+    } else {
+      normalized['categoryId'] = 'default';
+    }
+
+    if (isMeaningful(map['reminderTime'])) {
+      normalized['reminderTime'] = map['reminderTime'].toString();
+    } else if (local != null && isMeaningful(local['reminderTime'])) {
+      normalized['reminderTime'] = local['reminderTime'].toString();
+    } else {
+      normalized['reminderTime'] = null;
+    }
+
+    if (isMeaningful(map['photoPath'])) {
+      normalized['photoPath'] = map['photoPath'].toString();
+    } else if (local != null && isMeaningful(local['photoPath'])) {
+      normalized['photoPath'] = local['photoPath'].toString();
+    } else {
+      normalized['photoPath'] = null;
+    }
+
+    if (map['photosPaths'] is List && (map['photosPaths'] as List).isNotEmpty) {
+      normalized['photosPaths'] = (map['photosPaths'] as List)
+          .map((e) => e?.toString() ?? '')
+          .join('|');
+    } else if (map['photosPaths'] is String &&
+        isMeaningful(map['photosPaths'])) {
+      normalized['photosPaths'] = map['photosPaths'].toString();
+    } else if (local != null && isMeaningful(local['photosPaths'])) {
+      normalized['photosPaths'] = local['photosPaths'].toString();
+    } else {
+      normalized['photosPaths'] = null;
+    }
+
+    if (isMeaningful(map['completedAt'])) {
+      normalized['completedAt'] = map['completedAt'].toString();
+    } else if (local != null && isMeaningful(local['completedAt'])) {
+      normalized['completedAt'] = local['completedAt'].toString();
+    } else {
+      normalized['completedAt'] = null;
+    }
+    if (isMeaningful(map['completedBy'])) {
+      normalized['completedBy'] = map['completedBy'].toString();
+    } else if (local != null && isMeaningful(local['completedBy'])) {
+      normalized['completedBy'] = local['completedBy'].toString();
+    } else {
+      normalized['completedBy'] = null;
+    }
+
+    if (map['latitude'] is num) {
+      normalized['latitude'] = (map['latitude'] as num).toDouble();
+    } else if (local != null && local['latitude'] is num) {
+      normalized['latitude'] = (local['latitude'] as num).toDouble();
+    } else {
+      normalized['latitude'] = null;
+    }
+    if (map['longitude'] is num) {
+      normalized['longitude'] = (map['longitude'] as num).toDouble();
+    } else if (local != null && local['longitude'] is num) {
+      normalized['longitude'] = (local['longitude'] as num).toDouble();
+    } else {
+      normalized['longitude'] = null;
+    }
+
+    if (isMeaningful(map['locationName'])) {
+      normalized['locationName'] = map['locationName'].toString();
+    } else if (local != null && isMeaningful(local['locationName'])) {
+      normalized['locationName'] = local['locationName'].toString();
+    } else {
+      normalized['locationName'] = null;
+    }
+    if (map['locationHistory'] is List &&
+        (map['locationHistory'] as List).isNotEmpty) {
+      try {
+        normalized['locationHistory'] = jsonEncode(map['locationHistory']);
+      } catch (_) {
+        normalized['locationHistory'] = map['locationHistory'].toString();
+      }
+    } else if (isMeaningful(local?['locationHistory'])) {
+      normalized['locationHistory'] = local!['locationHistory'].toString();
+    } else {
+      normalized['locationHistory'] = null;
+    }
+
+    final safeMap = <String, Object?>{};
+    normalized.forEach((k, v) {
+      if (v == null) {
+        safeMap[k] = null;
+      } else if (v is num || v is String || v is Uint8List) {
+        safeMap[k] = v;
+      } else {
+        try {
+          safeMap[k] = jsonEncode(v);
+        } catch (_) {
+          safeMap[k] = v.toString();
+        }
+      }
+    });
+
+    await db.insert(
+      'tasks',
+      safeMap,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    try {
+      _emitChangeDebounced();
+    } catch (_) {}
   }
 
   Future<int> deleteAll() async {
@@ -336,5 +811,8 @@ class DatabaseService {
   Future<void> close() async {
     final db = await instance.database;
     db.close();
+    try {
+      _ChangeController.close();
+    } catch (_) {}
   }
 }

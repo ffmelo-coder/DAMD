@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as fnd;
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
@@ -54,7 +55,7 @@ class _TaskCardState extends State<TaskCard> {
         });
       }
     } catch (e) {
-      print('Erro ao carregar categoria: $e');
+      fnd.debugPrint('Erro ao carregar categoria: $e');
     }
   }
 
@@ -111,23 +112,26 @@ class _TaskCardState extends State<TaskCard> {
       child: InkWell(
         onTap: widget.onToggle,
         onLongPress: () {
-          showModalBottomSheet(
+          showDialog(
             context: context,
-            builder: (context) => Column(
-              mainAxisSize: MainAxisSize.min,
+            builder: (context) => SimpleDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               children: [
-                ListTile(
-                  leading: const Icon(Icons.edit),
-                  title: const Text('Editar'),
-                  onTap: () {
+                SimpleDialogOption(
+                  onPressed: () {
                     Navigator.pop(context);
                     widget.onEdit?.call();
                   },
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    leading: const Icon(Icons.edit),
+                    title: const Text('Editar'),
+                  ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.share),
-                  title: const Text('Compartilhar'),
-                  onTap: () {
+                SimpleDialogOption(
+                  onPressed: () {
                     Navigator.pop(context);
                     final shareText = widget.task.getShareTextWithCategory(
                       _category?.name,
@@ -135,17 +139,25 @@ class _TaskCardState extends State<TaskCard> {
                     );
                     Share.share(shareText);
                   },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Excluir',
-                    style: TextStyle(color: Colors.red),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    leading: const Icon(Icons.share),
+                    title: const Text('Compartilhar'),
                   ),
-                  onTap: () {
+                ),
+                SimpleDialogOption(
+                  onPressed: () {
                     Navigator.pop(context);
                     widget.onDelete?.call();
                   },
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    leading: const Icon(Icons.delete, color: Colors.red),
+                    title: const Text(
+                      'Excluir',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -156,7 +168,7 @@ class _TaskCardState extends State<TaskCard> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _getPriorityColor().withOpacity(0.3),
+              color: _getPriorityColor().withAlpha((0.3 * 255).round()),
               width: 2,
             ),
           ),
@@ -178,14 +190,14 @@ class _TaskCardState extends State<TaskCard> {
                             int.parse(
                               _category!.color.replaceFirst('#', '0xFF'),
                             ),
-                          ).withOpacity(0.1),
+                          ).withAlpha((0.1 * 255).round()),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: Color(
                               int.parse(
                                 _category!.color.replaceFirst('#', '0xFF'),
                               ),
-                            ).withOpacity(0.3),
+                            ).withAlpha((0.3 * 255).round()),
                           ),
                         ),
                         child: Row(
@@ -326,17 +338,17 @@ class _TaskCardState extends State<TaskCard> {
                     ),
                     decoration: BoxDecoration(
                       color: widget.task.isOverdue
-                          ? Colors.red.withOpacity(0.1)
+                          ? Colors.red.withAlpha((0.1 * 255).round())
                           : widget.task.isDueToday
-                          ? Colors.amber.withOpacity(0.1)
-                          : Colors.blue.withOpacity(0.1),
+                          ? Colors.amber.withAlpha((0.1 * 255).round())
+                          : Colors.blue.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: widget.task.isOverdue
-                            ? Colors.red.withOpacity(0.3)
+                            ? Colors.red.withAlpha((0.3 * 255).round())
                             : widget.task.isDueToday
-                            ? Colors.amber.withOpacity(0.3)
-                            : Colors.blue.withOpacity(0.3),
+                            ? Colors.amber.withAlpha((0.3 * 255).round())
+                            : Colors.blue.withAlpha((0.3 * 255).round()),
                       ),
                     ),
                     child: Row(
@@ -381,97 +393,112 @@ class _TaskCardState extends State<TaskCard> {
 
                 Row(
                   children: [
-                    Chip(
-                      avatar: _getPriorityIcon(),
-                      label: Text(
-                        Task.getPriorityText(widget.task.priority),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _getPriorityColor(),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      backgroundColor: _getPriorityColor().withOpacity(0.1),
-                      side: BorderSide(
-                        color: _getPriorityColor().withOpacity(0.3),
-                      ),
-                    ),
-
-                    if (widget.task.hasPhoto) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.photo_camera,
-                              size: 14,
-                              color: Colors.blue,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.task.hasMultiplePhotos
-                                  ? '${widget.task.photosPaths!.length}'
-                                  : '1',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    if (widget.task.hasLocation) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.purple.withOpacity(0.5),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 14,
-                              color: Colors.purple,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Local',
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Chip(
+                            avatar: _getPriorityIcon(),
+                            label: Text(
+                              Task.getPriorityText(widget.task.priority),
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.purple,
+                                color: _getPriorityColor(),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            backgroundColor: _getPriorityColor().withAlpha(
+                              (0.1 * 255).round(),
+                            ),
+                            side: BorderSide(
+                              color: _getPriorityColor().withAlpha(
+                                (0.3 * 255).round(),
+                              ),
+                            ),
+                          ),
 
-                    const Spacer(),
+                          if (widget.task.hasPhoto)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withAlpha(
+                                  (0.1 * 255).round(),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.blue.withAlpha(
+                                    (0.5 * 255).round(),
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.photo_camera,
+                                    size: 14,
+                                    color: Colors.blue,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    widget.task.hasMultiplePhotos
+                                        ? '${widget.task.photosPaths!.length}'
+                                        : '1',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          if (widget.task.hasLocation)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withAlpha(
+                                  (0.1 * 255).round(),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.purple.withAlpha(
+                                    (0.5 * 255).round(),
+                                  ),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 14,
+                                    color: Colors.purple,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Local',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.purple,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
 
                     IconButton(
                       onPressed: () {
@@ -484,7 +511,9 @@ class _TaskCardState extends State<TaskCard> {
                       icon: const Icon(Icons.share),
                       tooltip: 'Compartilhar tarefa',
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        backgroundColor: Colors.blue.withAlpha(
+                          (0.1 * 255).round(),
+                        ),
                         foregroundColor: Colors.blue,
                         padding: const EdgeInsets.all(8),
                       ),
@@ -492,18 +521,104 @@ class _TaskCardState extends State<TaskCard> {
 
                     const SizedBox(width: 8),
 
-                    Row(
-                      children: [
-                        Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(widget.task.createdAt),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                    SizedBox(
+                      width: 140,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isBounded = constraints.maxWidth.isFinite;
+                          if (isBounded) {
+                            return Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    _formatDate(widget.task.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (!widget.task.synced) ...[
+                                  Icon(
+                                    Icons.cloud_off,
+                                    size: 16,
+                                    color: Colors.orange[700],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Pendente',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange[700],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Icon(
+                                    Icons.cloud_done,
+                                    size: 16,
+                                    color: Colors.green[700],
+                                  ),
+                                ],
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                size: 16,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 140,
+                                ),
+                                child: Text(
+                                  _formatDate(widget.task.createdAt),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (!widget.task.synced) ...[
+                                Icon(
+                                  Icons.cloud_off,
+                                  size: 16,
+                                  color: Colors.orange[700],
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Pendente',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange[700],
+                                  ),
+                                ),
+                              ] else ...[
+                                Icon(
+                                  Icons.cloud_done,
+                                  size: 16,
+                                  color: Colors.green[700],
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -517,9 +632,11 @@ class _TaskCardState extends State<TaskCard> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      border: Border.all(
+                        color: Colors.green.withAlpha((0.3 * 255).round()),
+                      ),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,

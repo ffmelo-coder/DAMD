@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io' show Platform;
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' as fnd;
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/sync_manager.dart';
 import '../services/notification_service.dart';
 import '../services/backup_service.dart';
 import '../services/sensor_service.dart';
@@ -27,6 +31,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
   String _sortBy = 'dueDate';
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _isOnline = true;
+  StreamSubscription? _connectivitySub;
+  StreamSubscription? _dbChangeSub;
 
   @override
   void initState() {
@@ -34,13 +41,49 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _initializeApp();
     _setupShakeDetection();
     _setupGeofencing();
+    _startConnectivityListener();
+
+    try {
+      _dbChangeSub = DatabaseService.instance.onDatabaseChanged.listen((_) {
+        if (mounted) _loadTasks();
+      });
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     SensorService.instance.stop();
     LocationService.instance.stopGeofenceMonitoring();
+    _connectivitySub?.cancel();
+    _dbChangeSub?.cancel();
     super.dispose();
+  }
+
+  void _startConnectivityListener() async {
+    final connectivity = Connectivity();
+    final dynamic initial = await connectivity.checkConnectivity();
+    if (initial is ConnectivityResult) {
+      setState(() {
+        _isOnline = initial != ConnectivityResult.none;
+      });
+    } else if (initial is List && initial.isNotEmpty) {
+      setState(() {
+        _isOnline = initial.first != ConnectivityResult.none;
+      });
+    }
+    _connectivitySub = connectivity.onConnectivityChanged.listen((
+      dynamic result,
+    ) {
+      bool online = false;
+      if (result is List && result.isNotEmpty) {
+        online = result.first != ConnectivityResult.none;
+      } else if (result is ConnectivityResult) {
+        online = result != ConnectivityResult.none;
+      }
+      if (mounted) {
+        setState(() => _isOnline = online);
+      }
+    });
   }
 
   void _setupShakeDetection() {
@@ -78,7 +121,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         },
       );
     } else {
-      print(
+      fnd.debugPrint(
         '⚠️ Sensores não disponíveis nesta plataforma (Windows/Linux/macOS)',
       );
     }
@@ -87,6 +130,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   void _setupGeofencing() {
     if (Platform.isAndroid || Platform.isIOS) {
       LocationService.instance.startGeofenceMonitoring((geofenceId, entered) {
+        if (_tasks.isEmpty) return;
+
         final task = _tasks.firstWhere(
           (t) => t.id == geofenceId,
           orElse: () => _tasks.first,
@@ -312,6 +357,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
         await DatabaseService.instance.delete(task.id);
         await NotificationService().cancelTaskReminder(task.id);
 
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✓ Tarefa excluída com sucesso'),
@@ -320,6 +367,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
         );
         _loadTasks();
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao excluir tarefa: $e'),
@@ -364,6 +412,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                   try {
                     await BackupService().shareBackup();
                   } catch (e) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Erro ao compartilhar: $e'),
@@ -450,6 +499,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
     if (shouldProceed != true) return;
 
     try {
+      final navigator = Navigator.of(context);
+
+      final messenger = ScaffoldMessenger.of(context);
+
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -466,31 +519,30 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
       final success = await BackupService().importFromJson();
 
-      if (mounted) {
-        Navigator.pop(context);
+      if (!mounted) return;
+      navigator.pop();
 
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✓ Backup importado com sucesso!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
+      if (success) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('✓ Backup importado com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
 
-          await _loadCategories();
-          await _loadTasks();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '❌ Falha na importação - arquivo inválido ou cancelado',
-              ),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 4),
+        await _loadCategories();
+        await _loadTasks();
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              '❌ Falha na importação - arquivo inválido ou cancelado',
             ),
-          );
-        }
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -523,7 +575,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
     );
 
     if (result == true && mounted) {
-      _loadTasks();
+      await _loadTasks();
     }
   }
 
@@ -742,7 +794,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _filterCategory,
+                        initialValue: _filterCategory,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Categoria',
@@ -794,7 +846,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _sortBy,
+                        initialValue: _sortBy,
                         decoration: const InputDecoration(
                           labelText: 'Ordenar por',
                           prefixIcon: Icon(Icons.sort),
@@ -864,7 +916,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
-                  value: _filterStatus,
+                  initialValue: _filterStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     prefixIcon: Icon(Icons.filter_list),
@@ -901,7 +953,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
-                  value: _filterCategory,
+                  initialValue: _filterCategory,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Categoria',
@@ -948,7 +1000,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
-                  value: _sortBy,
+                  initialValue: _sortBy,
                   decoration: const InputDecoration(
                     labelText: 'Ordenar',
                     prefixIcon: Icon(Icons.sort),
@@ -1022,9 +1074,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
               width: 100,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                border: Border.all(
+                  color: Colors.blue.withAlpha((0.3 * 255).round()),
+                ),
               ),
               child: Column(
                 children: [
@@ -1042,7 +1096,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     'Total',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue.withOpacity(0.8),
+                      color: Colors.blue.withAlpha((0.8 * 255).round()),
                     ),
                   ),
                 ],
@@ -1054,9 +1108,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
               width: 100,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                border: Border.all(
+                  color: Colors.orange.withAlpha((0.3 * 255).round()),
+                ),
               ),
               child: Column(
                 children: [
@@ -1078,7 +1134,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     'Pendentes',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.orange.withOpacity(0.8),
+                      color: Colors.orange.withAlpha((0.8 * 255).round()),
                     ),
                   ),
                 ],
@@ -1090,9 +1146,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
               width: 100,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                border: Border.all(
+                  color: Colors.green.withAlpha((0.3 * 255).round()),
+                ),
               ),
               child: Column(
                 children: [
@@ -1110,7 +1168,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     'Concluídas',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.green.withOpacity(0.8),
+                      color: Colors.green.withAlpha((0.8 * 255).round()),
                     ),
                   ),
                 ],
@@ -1123,9 +1181,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 width: 100,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withAlpha((0.1 * 255).round()),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  border: Border.all(
+                    color: Colors.red.withAlpha((0.3 * 255).round()),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -1143,7 +1203,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       'Vencidas',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.red.withOpacity(0.8),
+                        color: Colors.red.withAlpha((0.8 * 255).round()),
                       ),
                     ),
                   ],
@@ -1157,9 +1217,11 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 width: 100,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
+                  color: Colors.purple.withAlpha((0.1 * 255).round()),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                  border: Border.all(
+                    color: Colors.purple.withAlpha((0.3 * 255).round()),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -1181,7 +1243,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       'Urgentes',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.purple.withOpacity(0.8),
+                        color: Colors.purple.withAlpha((0.8 * 255).round()),
                       ),
                     ),
                   ],
@@ -1261,8 +1323,36 @@ class _TaskListScreenState extends State<TaskListScreen> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Row(
+              children: [
+                Icon(
+                  _isOnline ? Icons.wifi : Icons.wifi_off,
+                  color: _isOnline ? Colors.greenAccent : Colors.orangeAccent,
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ),
           IconButton(
-            onPressed: _refreshTasks,
+            onPressed: () async {
+              if (!mounted) return;
+              setState(() => _isRefreshing = true);
+              try {
+                await SyncManager.instance.syncNow();
+
+                await _loadTasks();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erro ao sincronizar: $e')),
+                  );
+                }
+              } finally {
+                if (mounted) setState(() => _isRefreshing = false);
+              }
+            },
             icon: _isRefreshing
                 ? const SizedBox(
                     width: 20,
@@ -1272,9 +1362,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Icon(Icons.refresh),
-            tooltip: 'Atualizar',
+                : const Icon(Icons.sync_alt),
+            tooltip: 'Sincronizar agora',
           ),
+
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -1396,7 +1487,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                             icon: const Icon(Icons.share, size: 18),
                             tooltip: 'Compartilhar esta lista',
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.purple.withOpacity(0.1),
+                              backgroundColor: Colors.purple.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
                               foregroundColor: Colors.purple,
                               padding: const EdgeInsets.all(6),
                             ),

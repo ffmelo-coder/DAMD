@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -65,7 +65,7 @@ class PhotoFilterService {
 
       return filePath;
     } catch (e) {
-      print('❌ Erro ao aplicar filtro: $e');
+      debugPrint('❌ Erro ao aplicar filtro: $e');
       return imagePath;
     }
   }
@@ -96,15 +96,16 @@ class PhotoFilterService {
 
   Future<Uint8List?> getFilterPreview(
     String imagePath,
-    PhotoFilter filter,
-  ) async {
+    PhotoFilter filter, {
+    int width = 200,
+  }) async {
     try {
       final bytes = await File(imagePath).readAsBytes();
       img.Image? image = img.decodeImage(bytes);
 
       if (image == null) return null;
 
-      image = img.copyResize(image, width: 200);
+      image = img.copyResize(image, width: width);
 
       switch (filter) {
         case PhotoFilter.none:

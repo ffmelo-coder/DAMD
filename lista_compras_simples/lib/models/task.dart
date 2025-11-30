@@ -8,6 +8,8 @@ class Task {
   final String priority;
   final DateTime createdAt;
   final DateTime? dueDate;
+  final DateTime updatedAt;
+  final bool synced;
   final String categoryId;
   final DateTime? reminderTime;
 
@@ -30,6 +32,8 @@ class Task {
     this.priority = 'medium',
     DateTime? createdAt,
     this.dueDate,
+    DateTime? updatedAt,
+    this.synced = false,
     this.categoryId = 'default',
     this.reminderTime,
     this.photoPath,
@@ -41,14 +45,14 @@ class Task {
     this.locationName,
     this.locationHistory,
   }) : id = id ?? const Uuid().v4(),
-       createdAt = createdAt ?? DateTime.now();
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? (createdAt ?? DateTime.now());
 
-  bool get hasPhoto => photoPath != null && photoPath!.isNotEmpty;
-  bool get hasMultiplePhotos => photosPaths != null && photosPaths!.isNotEmpty;
+  bool get hasPhoto => photoPath?.isNotEmpty ?? false;
+  bool get hasMultiplePhotos => photosPaths?.isNotEmpty ?? false;
   bool get hasLocation => latitude != null && longitude != null;
   bool get wasCompletedByShake => completedBy == 'shake';
-  bool get hasLocationHistory =>
-      locationHistory != null && locationHistory!.isNotEmpty;
+  bool get hasLocationHistory => locationHistory?.isNotEmpty ?? false;
 
   Map<String, dynamic> toMap() {
     return {
@@ -62,15 +66,17 @@ class Task {
       'categoryId': categoryId,
       'reminderTime': reminderTime?.toIso8601String(),
       'photoPath': photoPath,
-      'photosPaths': photosPaths != null ? photosPaths!.join('|') : null,
+      'photosPaths': photosPaths?.join('|'),
       'completedAt': completedAt?.toIso8601String(),
       'completedBy': completedBy,
       'latitude': latitude,
       'longitude': longitude,
       'locationName': locationName,
-      'locationHistory': locationHistory != null
-          ? _encodeLocationHistory(locationHistory!)
-          : null,
+      'locationHistory': locationHistory == null
+          ? null
+          : _encodeLocationHistory(locationHistory!),
+      'updatedAt': updatedAt.toIso8601String(),
+      'synced': synced ? 1 : 0,
     };
   }
 
@@ -114,6 +120,10 @@ class Task {
       locationHistory: map['locationHistory'] != null
           ? _decodeLocationHistoryStatic(map['locationHistory'] as String)
           : null,
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'] as String)
+          : DateTime.parse(map['createdAt']),
+      synced: (map['synced'] ?? 0) == 1,
     );
   }
 
@@ -158,6 +168,8 @@ class Task {
     double? longitude,
     String? locationName,
     List<Map<String, dynamic>>? locationHistory,
+    DateTime? updatedAt,
+    bool? synced,
   }) {
     return Task(
       id: id,
@@ -179,6 +191,8 @@ class Task {
       longitude: longitude ?? this.longitude,
       locationName: locationName ?? this.locationName,
       locationHistory: locationHistory ?? this.locationHistory,
+      updatedAt: updatedAt ?? this.updatedAt,
+      synced: synced ?? this.synced,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
@@ -17,7 +18,7 @@ class LocationService {
   Future<bool> checkAndRequestPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      print('⚠️ Serviço de localização desabilitado');
+      debugPrint('⚠️ Serviço de localização desabilitado');
       return false;
     }
 
@@ -25,17 +26,17 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        print('⚠️ Permissão negada');
+        debugPrint('⚠️ Permissão negada');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      print('⚠️ Permissão negada permanentemente');
+      debugPrint('⚠️ Permissão negada permanentemente');
       return false;
     }
 
-    print('✅ Permissão de localização concedida');
+    debugPrint('✅ Permissão de localização concedida');
     return true;
   }
 
@@ -48,7 +49,7 @@ class LocationService {
         desiredAccuracy: LocationAccuracy.high,
       );
     } catch (e) {
-      print('❌ Erro ao obter localização: $e');
+      debugPrint('❌ Erro ao obter localização: $e');
       return null;
     }
   }
@@ -88,7 +89,7 @@ class LocationService {
         return parts.join(', ');
       }
     } catch (e) {
-      print('❌ Erro ao obter endereço: $e');
+      debugPrint('❌ Erro ao obter endereço: $e');
     }
     return null;
   }
@@ -116,7 +117,7 @@ class LocationService {
         );
       }
     } catch (e) {
-      print('❌ Erro ao buscar endereço: $e');
+      debugPrint('❌ Erro ao buscar endereço: $e');
     }
     return null;
   }
@@ -145,7 +146,7 @@ class LocationService {
         return parts.take(3).join(', ');
       }
     } catch (e) {
-      print('❌ Erro ao obter endereço do Nominatim: $e');
+      debugPrint('❌ Erro ao obter endereço do Nominatim: $e');
     }
     return null;
   }
@@ -183,7 +184,7 @@ class LocationService {
         }
       }
     } catch (e) {
-      print('❌ Erro ao buscar endereço no Nominatim: $e');
+      debugPrint('❌ Erro ao buscar endereço no Nominatim: $e');
     }
     return null;
   }
@@ -205,7 +206,7 @@ class LocationService {
         'longitude': position.longitude,
       };
     } catch (e) {
-      print('❌ Erro: $e');
+      debugPrint('❌ Erro: $e');
       return null;
     }
   }
@@ -217,19 +218,19 @@ class LocationService {
       longitude: lon,
       radius: radiusMeters,
     );
-    print('✅ Geofence adicionada: $id');
+    debugPrint('✅ Geofence adicionada: $id');
   }
 
   void removeGeofence(String id) {
     _geofences.remove(id);
-    print('🗑️ Geofence removida: $id');
+    debugPrint('🗑️ Geofence removida: $id');
   }
 
   void startGeofenceMonitoring(
     Function(String geofenceId, bool entered) onEvent,
   ) {
     if (_positionStream != null) {
-      print('⚠️ Monitoramento já ativo');
+      debugPrint('⚠️ Monitoramento já ativo');
       return;
     }
 
@@ -247,7 +248,7 @@ class LocationService {
           },
         );
 
-    print('📍 Monitoramento de geofencing iniciado');
+    debugPrint('📍 Monitoramento de geofencing iniciado');
   }
 
   final Map<String, bool> _insideGeofence = {};
@@ -269,7 +270,6 @@ class LocationService {
         _insideGeofence[geofence.id] = isInside;
         _onGeofenceEvent?.call(geofence.id, isInside);
 
-        // Enviar notificação
         final locationName =
             await getAddressFromCoordinates(
               geofence.latitude,
@@ -283,14 +283,14 @@ class LocationService {
             body: 'Você está próximo de: $locationName',
             payload: geofence.id,
           );
-          print('🔔 Geofence ${geofence.id}: Entrou - $locationName');
+          debugPrint('🔔 Geofence ${geofence.id}: Entrou - $locationName');
         } else {
           await NotificationService.instance.showGeofenceNotification(
             title: '🚶 Você saiu da área',
             body: 'Você se afastou de: $locationName',
             payload: geofence.id,
           );
-          print('🔔 Geofence ${geofence.id}: Saiu - $locationName');
+          debugPrint('🔔 Geofence ${geofence.id}: Saiu - $locationName');
         }
       }
     }
@@ -301,7 +301,7 @@ class LocationService {
     _positionStream = null;
     _onGeofenceEvent = null;
     _insideGeofence.clear();
-    print('⏹️ Monitoramento de geofencing parado');
+    debugPrint('⏹️ Monitoramento de geofencing parado');
   }
 }
 

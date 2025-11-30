@@ -7,6 +7,7 @@
     "start:item": "node services/item/index.js",
     "start:list": "node services/list/index.js",
     "start:gateway": "node gateway/index.js",
+    "start:all": "node start-all.js",
     "start:notify": "node services/consumers/notify.js",
     "start:analytics": "node services/consumers/analytics.js",
     "demo": "node client-demo.js"
@@ -19,6 +20,7 @@
     "jsonwebtoken": "^9.0.0",
     "node-fetch": "^2.6.7",
     "uuid": "^9.0.0",
+    "better-sqlite3": "^8.1.0",
     "amqplib": "^0.10.3"
   }
 }

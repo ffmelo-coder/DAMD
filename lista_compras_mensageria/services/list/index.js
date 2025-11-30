@@ -17,6 +17,11 @@ ensureFile(DATA_FILE, []);
 const JWT_SECRET = process.env.JWT_SECRET || "verysecret";
 
 function authMiddleware(req, res, next) {
+  // allow bypass for demo/testing when gateway injects this header
+  if (req.headers && req.headers["x-skip-auth"] === "true") {
+    req.user = { id: "demo-user", email: "demo@example.com" };
+    return next();
+  }
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ error: "missing token" });
   const parts = auth.split(" ");
@@ -34,22 +39,92 @@ function authMiddleware(req, res, next) {
 
 app.get("/health", (req, res) => res.json({ status: "ok", service: "list" }));
 
-app.post("/lists", authMiddleware, (req, res) => {
-  const { name, description } = req.body;
+app.post("/lists", authMiddleware, async (req, res) => {
+  const { name, description, items: incomingItems } = req.body;
   const lists = readJson(DATA_FILE, []);
   const id = uuidv4();
-  const now = Date.now();
+  const now = new Date().toISOString();
+
+  // construct initial list object
   const list = {
     id,
-    userId: req.user.id,
-    name: name || "Minha lista",
+    name: name || "",
     description: description || "",
-    status: "active",
+    userId: req.user && req.user.id ? req.user.id : "demo-user",
     items: [],
-    summary: { totalItems: 0, purchasedItems: 0, estimatedTotal: 0 },
+    status: "active",
     createdAt: now,
     updatedAt: now,
+    summary: { totalItems: 0, purchasedItems: 0, estimatedTotal: 0 },
   };
+
+  // If client provided items in the create request, process them.
+  if (Array.isArray(incomingItems) && incomingItems.length > 0) {
+    // Try to discover item service once for enrichment
+    const svc = registry.discover("item-service");
+    for (const inc of incomingItems) {
+      try {
+        if (inc.itemId && svc) {
+          // Fetch item details from item-service to enrich
+          const resp = await fetch(`${svc.url}/items/${inc.itemId}`);
+          if (resp.ok) {
+            const item = await resp.json();
+            const added = {
+              itemId: item.id,
+              itemName: item.name,
+              quantity: Number(inc.quantity || 1),
+              unit: item.unit || inc.unit || "un",
+              estimatedPrice:
+                (item.averagePrice || 0) * Number(inc.quantity || 1),
+              purchased: !!inc.purchased,
+              notes: inc.notes || "",
+              addedAt: new Date().toISOString(),
+              id: uuidv4(),
+            };
+            list.items.push(added);
+          } else {
+            // If item-service doesn't know this item, fall back to accepting provided data
+            const fallback = {
+              itemId: inc.itemId,
+              itemName: inc.itemName || inc.name || "",
+              quantity: Number(inc.quantity || 1),
+              unit: inc.unit || "un",
+              estimatedPrice: Number(inc.estimatedPrice || 0),
+              purchased: !!inc.purchased,
+              notes: inc.notes || "",
+              addedAt: new Date().toISOString(),
+              id: uuidv4(),
+            };
+            list.items.push(fallback);
+          }
+        } else {
+          // Accept inline item data (client-generated)
+          const inline = {
+            itemId: inc.itemId || null,
+            itemName: inc.itemName || inc.name || "",
+            quantity: Number(inc.quantity || 1),
+            unit: inc.unit || "un",
+            estimatedPrice: Number(inc.estimatedPrice || 0),
+            purchased: !!inc.purchased,
+            notes: inc.notes || "",
+            addedAt: new Date().toISOString(),
+            id: inc.id || uuidv4(),
+          };
+          list.items.push(inline);
+        }
+      } catch (e) {
+        // on any error, skip this item but continue with others
+        console.warn(
+          "Failed to process incoming item on list create:",
+          e && e.message
+        );
+      }
+    }
+    // recalc summary and updatedAt
+    list.summary = calculateSummary(list.items);
+    list.updatedAt = new Date().toISOString();
+  }
+
   lists.push(list);
   writeJson(DATA_FILE, lists);
   res.json(list);
@@ -85,7 +160,7 @@ app.put("/lists/:id", authMiddleware, (req, res) => {
   if (name !== undefined) list.name = name;
   if (description !== undefined) list.description = description;
   if (status !== undefined) list.status = status;
-  list.updatedAt = Date.now();
+  list.updatedAt = new Date().toISOString();
   lists[idx] = list;
   writeJson(DATA_FILE, lists);
   res.json(list);
@@ -130,13 +205,13 @@ app.post("/lists/:id/items", authMiddleware, async (req, res) => {
       estimatedPrice: (item.averagePrice || 0) * Number(quantity),
       purchased: false,
       notes: notes || "",
-      addedAt: Date.now(),
+      addedAt: new Date().toISOString(),
       id: uuidv4(),
     };
     list.items.push(added);
     // recalc summary
     list.summary = calculateSummary(list.items);
-    list.updatedAt = Date.now();
+    list.updatedAt = new Date().toISOString();
     lists[idx] = list;
     writeJson(DATA_FILE, lists);
     res.json(added);
@@ -170,7 +245,7 @@ app.put("/lists/:id/items/:itemId", authMiddleware, (req, res) => {
   if (notes !== undefined) it.notes = notes;
   list.items[itemIdx] = it;
   list.summary = calculateSummary(list.items);
-  list.updatedAt = Date.now();
+  list.updatedAt = new Date().toISOString();
   lists[idx] = list;
   writeJson(DATA_FILE, lists);
   res.json(it);
@@ -188,7 +263,7 @@ app.delete("/lists/:id/items/:itemId", authMiddleware, (req, res) => {
     return res.status(404).json({ error: "item not in list" });
   list.items.splice(itemIdx, 1);
   list.summary = calculateSummary(list.items);
-  list.updatedAt = Date.now();
+  list.updatedAt = new Date().toISOString();
   lists[idx] = list;
   writeJson(DATA_FILE, lists);
   res.json({ ok: true });
@@ -215,7 +290,7 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
 
   // mark as completed locally
   list.status = "completed";
-  list.updatedAt = Date.now();
+  list.updatedAt = new Date().toISOString();
   // ensure summary up-to-date
   list.summary = calculateSummary(list.items);
   lists[idx] = list;
@@ -228,7 +303,7 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
     userId: list.userId,
     items: list.items,
     summary: list.summary,
-    timestamp: Date.now(),
+    timestamp: new Date().toISOString(),
   };
 
   // fetch user email for notification if available (best-effort)

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/photo_filter_service.dart';
 
@@ -14,6 +15,8 @@ class PhotoFilterScreen extends StatefulWidget {
 class _PhotoFilterScreenState extends State<PhotoFilterScreen> {
   PhotoFilter _selectedFilter = PhotoFilter.none;
   bool _isApplying = false;
+  bool _isGeneratingPreview = false;
+  Uint8List? _previewBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +58,21 @@ class _PhotoFilterScreenState extends State<PhotoFilterScreen> {
           Expanded(
             flex: 3,
             child: Center(
-              child: Image.file(File(widget.imagePath), fit: BoxFit.contain),
+              child: _isGeneratingPreview
+                  ? const Center(child: CircularProgressIndicator())
+                  : (_previewBytes != null
+                        ? InteractiveViewer(
+                            child: Image.memory(
+                              _previewBytes!,
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : InteractiveViewer(
+                            child: Image.file(
+                              File(widget.imagePath),
+                              fit: BoxFit.contain,
+                            ),
+                          )),
             ),
           ),
           Container(
@@ -74,6 +91,8 @@ class _PhotoFilterScreenState extends State<PhotoFilterScreen> {
                     setState(() {
                       _selectedFilter = filter;
                     });
+
+                    _generatePreviewFor(filter);
                   },
                   child: Container(
                     width: 100,
@@ -141,6 +160,43 @@ class _PhotoFilterScreenState extends State<PhotoFilterScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _generatePreviewFor(_selectedFilter);
+  }
+
+  Future<void> _generatePreviewFor(PhotoFilter filter) async {
+    setState(() {
+      _isGeneratingPreview = true;
+    });
+    try {
+      final bytes = await PhotoFilterService.instance.getFilterPreview(
+        widget.imagePath,
+        filter,
+        width: 800,
+      );
+      if (mounted) {
+        setState(() {
+          _previewBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _previewBytes = null;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingPreview = false;
+        });
+      }
+    }
   }
 
   Future<void> _applyFilter() async {

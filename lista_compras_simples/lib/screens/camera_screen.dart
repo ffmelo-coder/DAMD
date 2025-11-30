@@ -38,7 +38,7 @@ class _CameraScreenState extends State<CameraScreen> {
         Navigator.pop(context, savedPath);
       }
     } catch (e) {
-      print('❌ Erro ao capturar: $e');
+      debugPrint('❌ Erro ao capturar: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
@@ -75,7 +75,10 @@ class _CameraScreenState extends State<CameraScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                  colors: [
+                    Colors.black.withAlpha((0.8 * 255).round()),
+                    Colors.transparent,
+                  ],
                 ),
               ),
               child: SafeArea(
@@ -102,7 +105,7 @@ class _CameraScreenState extends State<CameraScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 4),
                           color: _isCapturing
-                              ? Colors.grey.withOpacity(0.5)
+                              ? Colors.grey.withAlpha((0.5 * 255).round())
                               : Colors.transparent,
                         ),
                         child: _isCapturing

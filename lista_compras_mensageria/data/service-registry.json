@@ -1,16 +1,7 @@
 {
-  "list-service": [
-    {
-      "registeredAt": 1764519866534,
-      "healthy": true,
-      "url": "http://localhost:3002",
-      "port": 3002,
-      "healthPath": "/health"
-    }
-  ],
   "item-service": [
     {
-      "registeredAt": 1764520410171,
+      "registeredAt": 1764605048667,
       "healthy": true,
       "url": "http://localhost:3003",
       "port": 3003,
@@ -19,10 +10,19 @@
   ],
   "user-service": [
     {
-      "registeredAt": 1764520421300,
+      "registeredAt": 1764605048678,
       "healthy": true,
       "url": "http://localhost:3001",
       "port": 3001,
+      "healthPath": "/health"
+    }
+  ],
+  "list-service": [
+    {
+      "registeredAt": 1764605048710,
+      "healthy": true,
+      "url": "http://localhost:3002",
+      "port": 3002,
       "healthPath": "/health"
     }
   ]

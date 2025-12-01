@@ -14,7 +14,7 @@ class SyncManager {
 
   static const List<String> _candidates = [
     'http://localhost:3000',
-    'https://nonuniform-unsurrealistically-mimi.ngrok-free.dev',
+    'SEU NGROK AQUI',
     'http://10.0.2.2:3000',
   ];
 

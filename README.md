@@ -12,6 +12,8 @@ Video (S3):
 
 <video controls src="lista_compras_mensageria/readme-imgs-videos/trabalhoDAMD (1).mp4" title="Title"></video>
 
+youtube: https://youtu.be/0xMj466jFNc
+
 Imagens:
 
 <img width="1181" height="1005" alt="image" src="https://github.com/user-attachments/assets/391df533-2b1b-4aab-85e8-c5c1aa97868c" />

@@ -8,12 +8,15 @@ Video (UI/UX - entrega 2):
 
 https://github.com/user-attachments/assets/42d56b56-0d84-4b5f-8167-95d904504cba
 
+Video (S3):
+
+<video controls src="lista_compras_mensageria/readme-imgs-videos/trabalhoDAMD (1).mp4" title="Title"></video>
+
 Imagens:
 
 <img width="1181" height="1005" alt="image" src="https://github.com/user-attachments/assets/391df533-2b1b-4aab-85e8-c5c1aa97868c" />
 
 <img width="1175" height="946" alt="image" src="https://github.com/user-attachments/assets/10df3978-9af1-4463-82e1-f3b8e2e40618" />
-
 
 <img width="1172" height="735" alt="image" src="https://github.com/user-attachments/assets/5f45b2dc-b04d-44a8-aca2-2a2e63a9dba2" />
 

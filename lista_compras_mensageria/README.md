@@ -664,6 +664,11 @@ $ aws --endpoint-url=http://localhost:4566 s3 ls s3://shopping-images/ --recursi
 
 Para dúvidas sobre o projeto, consulte a documentação ou entre em contato com a equipe de desenvolvimento.
 
+## Desenvolvedores da funcionalidade S3
+
+Filipe Faria Melo
+Augusto Fuscaldi Cerezo
+
 ## Licença
 
 Este projeto foi desenvolvido para fins acadêmicos.

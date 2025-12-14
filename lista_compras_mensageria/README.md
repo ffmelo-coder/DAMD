@@ -17,6 +17,8 @@ Este projeto implementa uma solução completa de gerenciamento de listas de com
 
 <video controls src="readme-imgs-videos/trabalhoDAMD (1).mp4" title="lista_compras_mensageria/readme-imgs-videos/trabalhoDAMD (1).mp4"></video>
 
+Youtube: https://youtu.be/0xMj466jFNc
+
 ## Arquitetura
 
 ### Visão Geral

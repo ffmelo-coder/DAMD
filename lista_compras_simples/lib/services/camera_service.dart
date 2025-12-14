@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../screens/camera_screen.dart';
+import 'media_service.dart';
 
 class CameraService {
   static final CameraService instance = CameraService._init();
@@ -124,12 +125,34 @@ class CameraService {
       }
 
       final savedImage = await File(image.path).copy(savePath);
-      debugPrint('✅ Foto salva: ${savedImage.path}');
+      debugPrint('✅ Foto salva localmente: ${savedImage.path}');
+
+      // Upload será feito após aplicar/escolher filtro
+
       return savedImage.path;
     } catch (e) {
       debugPrint('❌ Erro ao salvar foto: $e');
       rethrow;
     }
+  }
+
+  Future<void> _uploadToS3InBackground(String imagePath) async {
+    try {
+      final result = await MediaService.instance.uploadImage(imagePath);
+      if (result != null) {
+        debugPrint('☁️ Foto enviada para cloud: ${result['key']}');
+      } else {
+        debugPrint(
+          '⚠️ Não foi possível enviar foto para cloud (modo offline?)',
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erro ao enviar foto para cloud: $e');
+    }
+  }
+
+  Future<void> uploadToCloud(String imagePath) async {
+    await _uploadToS3InBackground(imagePath);
   }
 
   Future<bool> deletePhoto(String photoPath) async {

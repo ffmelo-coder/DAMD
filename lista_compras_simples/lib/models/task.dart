@@ -162,6 +162,8 @@ class Task {
     bool clearReminderTime = false,
     String? photoPath,
     List<String>? photosPaths,
+    bool clearPhotoPath = false,
+    bool clearPhotosPaths = false,
     DateTime? completedAt,
     String? completedBy,
     double? latitude,
@@ -183,8 +185,8 @@ class Task {
       reminderTime: clearReminderTime
           ? null
           : (reminderTime ?? this.reminderTime),
-      photoPath: photoPath ?? this.photoPath,
-      photosPaths: photosPaths ?? this.photosPaths,
+      photoPath: clearPhotoPath ? null : (photoPath ?? this.photoPath),
+      photosPaths: clearPhotosPaths ? null : (photosPaths ?? this.photosPaths),
       completedAt: completedAt ?? this.completedAt,
       completedBy: completedBy ?? this.completedBy,
       latitude: latitude ?? this.latitude,

@@ -7,6 +7,7 @@ import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import '../services/camera_service.dart';
 import '../services/location_service.dart';
+import '../services/media_service.dart';
 import '../widgets/location_picker.dart';
 import '../screens/photo_filter_screen.dart';
 
@@ -34,6 +35,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   String? _photoPath;
   List<String> _photosPaths = [];
+  final Map<String, String> _urlToLocalPath =
+      {}; // Mapeia URL -> path local para fallback
   double? _latitude;
   double? _longitude;
   String? _locationName;
@@ -210,6 +213,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       if (_photoPath == photoPath) {
         _photoPath = _photosPaths.isNotEmpty ? _photosPaths.first : null;
       }
+      if (_photosPaths.isEmpty) {
+        _photoPath = null;
+      }
+      debugPrint('🗑️ Foto removida. Total de fotos: ${_photosPaths.length}');
     });
   }
 
@@ -222,12 +229,32 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
           body: Center(
             child: InteractiveViewer(
-              child: Image.file(File(photoPath), fit: BoxFit.contain),
+              child: _buildImageWidget(photoPath, BoxFit.contain),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildImageWidget(String path, BoxFit fit) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return _NetworkImageWithFallback(
+        url: path,
+        localPath: _urlToLocalPath[path], // Passar path local se existir
+        fit: fit,
+      );
+    } else {
+      return Image.file(
+        File(path),
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+          );
+        },
+      );
+    }
   }
 
   Future<void> _showLocationPicker() async {
@@ -287,6 +314,52 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     ).showSnackBar(const SnackBar(content: Text('📍 Localização removida')));
   }
 
+  Future<List<String>?> _uploadImagesToCloud(List<String> paths) async {
+    if (paths.isEmpty) return null;
+
+    try {
+      final existingUrls = paths.where((p) => p.startsWith('http')).toList();
+      final localPaths = paths.where((p) => !p.startsWith('http')).toList();
+
+      debugPrint(
+        '📤 URLs existentes: ${existingUrls.length}, Novos uploads: ${localPaths.length}',
+      );
+
+      if (localPaths.isEmpty) {
+        return existingUrls.isNotEmpty ? existingUrls : null;
+      }
+
+      final results = await MediaService.instance.uploadMultipleImages(
+        localPaths,
+      );
+
+      if (results.isEmpty) {
+        debugPrint('⚠️ Upload falhou - mantendo caminhos locais para sync posterior');
+        return [...existingUrls, ...localPaths];
+      }
+
+      final newUrls = <String>[];
+      for (int i = 0; i < results.length; i++) {
+        final url = results[i]['url'] as String;
+        final localPath = localPaths[i];
+        newUrls.add(url);
+        _urlToLocalPath[url] = localPath;
+        debugPrint('🗺️ Mapeado: $url -> $localPath');
+      }
+
+      final allUrls = [...existingUrls, ...newUrls];
+      debugPrint(
+        '✅ Total de URLs: ${allUrls.length} (${existingUrls.length} antigas + ${newUrls.length} novas)',
+      );
+      return allUrls;
+    } catch (e) {
+      debugPrint('❌ Erro ao fazer upload de imagens: $e');
+      final existingUrls = paths.where((p) => p.startsWith('http')).toList();
+      final localPaths = paths.where((p) => !p.startsWith('http')).toList();
+      return [...existingUrls, ...localPaths];
+    }
+  }
+
   Future<void> _saveTask() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -295,6 +368,35 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     setState(() => _isLoading = true);
 
     try {
+      List<String>? cloudUrls;
+      if (_photosPaths.isNotEmpty) {
+        cloudUrls = await _uploadImagesToCloud(_photosPaths);
+        if (cloudUrls == null || cloudUrls.isEmpty) {
+          cloudUrls = _photosPaths;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('📷 Fotos salvas localmente. Serão enviadas quando online.'),
+                backgroundColor: Colors.blue,
+              ),
+            );
+          }
+        }
+      } else if (_photoPath != null) {
+        cloudUrls = await _uploadImagesToCloud([_photoPath!]);
+        if (cloudUrls == null || cloudUrls.isEmpty) {
+          cloudUrls = [_photoPath!];
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('📷 Foto salva localmente. Será enviada quando online.'),
+                backgroundColor: Colors.blue,
+              ),
+            );
+          }
+        }
+      }
+
       DateTime? reminderDateTime;
       if (_reminderTime != null && _dueDate != null) {
         reminderDateTime = DateTime(
@@ -315,8 +417,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           categoryId: _categoryId,
           dueDate: _dueDate,
           reminderTime: reminderDateTime,
-          photoPath: _photoPath,
-          photosPaths: _photosPaths.isNotEmpty ? _photosPaths : null,
+          photoPath: cloudUrls?.firstOrNull,
+          photosPaths: cloudUrls,
           latitude: _latitude,
           longitude: _longitude,
           locationName: _locationName,
@@ -351,8 +453,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           reminderTime: reminderDateTime,
           clearDueDate: _dueDate == null,
           clearReminderTime: reminderDateTime == null,
-          photoPath: _photoPath,
-          photosPaths: _photosPaths.isNotEmpty ? _photosPaths : null,
+          photoPath: cloudUrls?.firstOrNull,
+          photosPaths: cloudUrls,
+          clearPhotoPath: cloudUrls == null || cloudUrls.isEmpty,
+          clearPhotosPaths: cloudUrls == null || cloudUrls.isEmpty,
           latitude: _latitude,
           longitude: _longitude,
           locationName: _locationName,
@@ -729,18 +833,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
-                                        child: Image.file(
-                                          File(photoPath),
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stack) {
-                                                return const Center(
-                                                  child: Icon(
-                                                    Icons.broken_image,
-                                                    color: Colors.grey,
-                                                  ),
-                                                );
-                                              },
+                                        child: _buildImageWidget(
+                                          photoPath,
+                                          BoxFit.cover,
                                         ),
                                       ),
                                     ),
@@ -864,6 +959,103 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _NetworkImageWithFallback extends StatefulWidget {
+  final String url;
+  final String? localPath;
+  final BoxFit fit;
+
+  const _NetworkImageWithFallback({
+    required this.url,
+    this.localPath,
+    required this.fit,
+  });
+
+  @override
+  State<_NetworkImageWithFallback> createState() =>
+      _NetworkImageWithFallbackState();
+}
+
+class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
+  bool _useFallback = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_useFallback && widget.localPath != null) {
+      debugPrint('🔄 Usando fallback local: ${widget.localPath}');
+      return Image.file(
+        File(widget.localPath!),
+        fit: widget.fit,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_off, color: Colors.grey, size: 48),
+                SizedBox(height: 8),
+                Text(
+                  'Imagem indisponível',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    return Image.network(
+      widget.url,
+      fit: widget.fit,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: CircularProgressIndicator(
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                : null,
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('❌ Erro ao carregar da rede: $error');
+        debugPrint('🔗 URL: ${widget.url}');
+
+        if (widget.localPath != null && !_useFallback) {
+          debugPrint('🔄 Ativando fallback para: ${widget.localPath}');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _useFallback = true;
+              });
+            }
+          });
+        }
+
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.localPath != null ? Icons.refresh : Icons.error_outline,
+                color: Colors.orange,
+                size: 48,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.localPath != null
+                    ? 'Tentando novamente...'
+                    : 'Erro ao carregar',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

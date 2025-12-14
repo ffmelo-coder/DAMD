@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 import 'database_service.dart';
 import '../utils/updated_at_helper.dart';
 import 'package:flutter/foundation.dart' as fnd;
+import 'media_service.dart';
 
 class SyncManager {
   SyncManager._internal();
@@ -13,8 +15,8 @@ class SyncManager {
   static final SyncManager instance = SyncManager._internal();
 
   static const List<String> _candidates = [
+    'https://SEU-NGROK-AQUI',
     'http://localhost:3000',
-    'SEU NGROK AQUI',
     'http://10.0.2.2:3000',
   ];
 
@@ -111,12 +113,20 @@ class SyncManager {
   void scheduleSyncDebounced({Duration delay = const Duration(seconds: 1)}) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(delay, () async {
-      fnd.debugPrint('[SyncManager] Debounced sync triggered');
+      fnd.debugPrint('[SyncManager] ⏰ Debounced sync triggered');
       await syncNow();
     });
   }
 
+  Future<void> syncNow() async {
+    fnd.debugPrint('[SyncManager] 🔄 Sync NOW iniciado manualmente');
+    await _attemptSyncIfHealthy();
+    fnd.debugPrint('[SyncManager] ✅ Sync NOW concluído');
+  }
+
   Future<void> _syncPending() async {
+    await _uploadPendingPhotos();
+
     final pending = await DatabaseService.instance.getPendingSyncs();
     fnd.debugPrint('[SyncManager] Pending items to sync: ${pending.length}');
     if (pending.isEmpty) return;
@@ -582,10 +592,6 @@ class SyncManager {
     }
   }
 
-  Future<void> syncNow() async {
-    await _attemptSyncIfHealthy();
-  }
-
   Future<void> _pullServerTasks() async {
     try {
       final uri = Uri.parse('$_base/tasks');
@@ -659,6 +665,112 @@ class SyncManager {
       fnd.debugPrint('[SyncManager] Pulled ${data.length} tasks from server');
     } catch (e) {
       fnd.debugPrint('[SyncManager] Error pulling tasks: ${e.toString()}');
+    }
+  }
+
+  Future<void> _uploadPendingPhotos() async {
+    fnd.debugPrint('[SyncManager] 📸 Verificando fotos pendentes de upload...');
+    try {
+      final tasks = await DatabaseService.instance.readAll();
+      fnd.debugPrint('[SyncManager] 📋 Total de tarefas: ${tasks.length}');
+      final photosToUpload = <String>[];
+
+      for (final task in tasks) {
+        if (task.photosPaths != null) {
+          for (final path in task.photosPaths!) {
+            if (!path.startsWith('http://') && !path.startsWith('https://')) {
+              final file = File(path);
+              if (await file.exists()) {
+                photosToUpload.add(path);
+                fnd.debugPrint('[SyncManager] 📷 Foto local encontrada: $path');
+              } else {
+                fnd.debugPrint('[SyncManager] ⚠️ Arquivo não existe: $path');
+              }
+            }
+          }
+        }
+
+        if (task.photoPath != null &&
+            !task.photoPath!.startsWith('http://') &&
+            !task.photoPath!.startsWith('https://')) {
+          final file = File(task.photoPath!);
+          if (await file.exists()) {
+            photosToUpload.add(task.photoPath!);
+          }
+        }
+      }
+
+      if (photosToUpload.isEmpty) {
+        fnd.debugPrint('[SyncManager] Nenhuma foto pendente de upload');
+        return;
+      }
+
+      fnd.debugPrint(
+        '[SyncManager] Encontradas ${photosToUpload.length} fotos para upload',
+      );
+
+      final uploadResults = await MediaService.instance.uploadMultipleImages(
+        photosToUpload,
+      );
+
+      if (uploadResults.isEmpty) {
+        fnd.debugPrint('[SyncManager] Falha ao fazer upload das fotos');
+        return;
+      }
+
+      final pathToUrlMap = <String, String>{};
+      for (
+        int i = 0;
+        i < photosToUpload.length && i < uploadResults.length;
+        i++
+      ) {
+        if (uploadResults[i]['url'] != null) {
+          pathToUrlMap[photosToUpload[i]] = uploadResults[i]['url'];
+        }
+      }
+
+      for (final task in tasks) {
+        bool needsUpdate = false;
+        List<String>? newPhotosPaths;
+        String? newPhotoPath;
+
+        if (task.photosPaths != null) {
+          newPhotosPaths = task.photosPaths!.map((path) {
+            if (pathToUrlMap.containsKey(path)) {
+              needsUpdate = true;
+              return pathToUrlMap[path]!;
+            }
+            return path;
+          }).toList();
+        }
+
+        if (task.photoPath != null &&
+            pathToUrlMap.containsKey(task.photoPath)) {
+          newPhotoPath = pathToUrlMap[task.photoPath];
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          final updatedTask = task.copyWith(
+            photoPath: newPhotoPath,
+            photosPaths: newPhotosPaths,
+            synced: false,
+          );
+
+          await DatabaseService.instance.update(updatedTask);
+          fnd.debugPrint(
+            '[SyncManager] Tarefa ${task.id} atualizada com URLs do S3',
+          );
+        }
+      }
+
+      fnd.debugPrint(
+        '[SyncManager] Upload de ${uploadResults.length} fotos concluído',
+      );
+    } catch (e) {
+      fnd.debugPrint(
+        '[SyncManager] Erro ao fazer upload de fotos pendentes: $e',
+      );
     }
   }
 }

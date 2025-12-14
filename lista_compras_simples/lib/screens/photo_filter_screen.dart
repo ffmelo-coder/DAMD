@@ -210,6 +210,8 @@ class _PhotoFilterScreenState extends State<PhotoFilterScreen> {
         _selectedFilter,
       );
 
+      // Upload será feito ao salvar/atualizar a tarefa
+
       if (mounted) {
         Navigator.pop(context, filteredPath);
       }

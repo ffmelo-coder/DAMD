@@ -10,14 +10,15 @@ const registry = require("../../shared/serviceRegistry");
 const app = express();
 app.use(bodyParser.json());
 
-// simple request logger
 app.use((req, res, next) => {
   try {
     const safeBody = Object.assign({}, req.body || {});
-    if (safeBody.password) safeBody.password = '****';
-    console.log(`[user] ${req.method} ${req.originalUrl} body=${JSON.stringify(safeBody)}`);
+    if (safeBody.password) safeBody.password = "****";
+    console.log(
+      `[user] ${req.method} ${req.originalUrl} body=${JSON.stringify(safeBody)}`
+    );
   } catch (e) {
-    console.log('[user] request logger error', e.message || e);
+    console.log("[user] request logger error", e.message || e);
   }
   next();
 });
@@ -128,7 +129,6 @@ app.put("/users/:id", authMiddleware, (req, res) => {
   res.json(safe);
 });
 
-// register service in registry
 const serviceUrl = `http://localhost:${PORT}`;
 registry.registerService("user-service", {
   url: serviceUrl,

@@ -21,7 +21,6 @@ async function run() {
       try {
         const body = JSON.parse(msg.content.toString());
         const listId = body.listId;
-        // compute total estimated from items
         const total = (body.items || []).reduce(
           (s, it) => s + Number(it.estimatedPrice || 0),
           0
@@ -29,7 +28,6 @@ async function run() {
         console.log(
           `Analytics: lista [${listId}] total estimado R$ ${total.toFixed(2)}`
         );
-        // simulate writing to analytics store (omitted)
         ch.ack(msg);
       } catch (e) {
         console.error("Analytics failed to process message", e);

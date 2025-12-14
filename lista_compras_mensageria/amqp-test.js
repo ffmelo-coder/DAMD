@@ -1,5 +1,3 @@
-// amqp-test.js
-// Teste simples de conexão AMQP usando amqplib.
 const amqp = require("amqplib");
 
 const url =

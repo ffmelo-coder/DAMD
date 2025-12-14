@@ -4,16 +4,16 @@ const registry = require("../shared/serviceRegistry");
 const fetch = require("node-fetch");
 
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 
 const PORT = process.env.PORT || 3000;
 
-// Simple circuit breaker state
 const cb = {};
 function recordFailure(name) {
   cb[name] = cb[name] || { failures: 0, openUntil: 0 };
   cb[name].failures++;
-  if (cb[name].failures >= 3) cb[name].openUntil = Date.now() + 30 * 1000; // open 30s
+  if (cb[name].failures >= 3) cb[name].openUntil = Date.now() + 30 * 1000;
 }
 function recordSuccess(name) {
   cb[name] = { failures: 0, openUntil: 0 };
@@ -24,7 +24,6 @@ function isOpen(name) {
   return false;
 }
 
-// logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
   next();
@@ -42,14 +41,12 @@ async function proxyToService(serviceName, reqPath, req, res) {
       method: req.method,
       headers: Object.assign({}, req.headers),
     };
-    // remove host to avoid issues
     delete options.headers.host;
     if (req.method !== "GET" && req.method !== "HEAD")
       options.body = JSON.stringify(req.body);
     const r = await fetch(url, options);
     const text = await r.text();
     res.status(r.status);
-    // try to parse json
     try {
       res.json(JSON.parse(text));
     } catch (e) {
@@ -62,7 +59,6 @@ async function proxyToService(serviceName, reqPath, req, res) {
   }
 }
 
-// routes
 app.use("/api/auth", (req, res) => {
   const path = req.originalUrl.replace(/^\/api\/auth/, "/auth");
   proxyToService("user-service", path, req, res);
@@ -83,18 +79,63 @@ app.use("/api/lists", (req, res) => {
   proxyToService("list-service", path, req, res);
 });
 
-// Compatibility proxy for older clients that expect /tasks endpoints.
-// Injects a header to allow the list service to accept demo requests without auth.
+app.get("/api/media/images/:key", async (req, res) => {
+  try {
+    const { key } = req.params;
+    console.log(`[gateway] Buscando imagem: ${key}`);
+
+    const service = registry.discover("media-service");
+
+    if (!service) {
+      console.error("[gateway] media-service não disponível");
+      return res.status(503).json({ error: "media-service unavailable" });
+    }
+
+    const url = `${service.url}/media/image/${key}`;
+    console.log(`[gateway] Proxy para: ${url}`);
+
+    const response = await fetch(url);
+    console.log(`[gateway] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `[gateway] Erro ao buscar imagem: ${response.status} - ${errorText}`
+      );
+      return res
+        .status(response.status)
+        .json({ error: "image not found", details: errorText });
+    }
+
+    const contentType = response.headers.get("content-type");
+    console.log(`[gateway] Content-Type: ${contentType}`);
+    if (contentType) {
+      res.setHeader("content-type", contentType);
+    }
+
+    const buffer = await response.buffer();
+    console.log(`[gateway] Imagem enviada: ${buffer.length} bytes`);
+    res.send(buffer);
+  } catch (e) {
+    console.error("[gateway] Erro no proxy de imagem:", e.message, e.stack);
+    res
+      .status(500)
+      .json({ error: "failed to fetch image", details: e.message });
+  }
+});
+
+app.use("/api/media", (req, res) => {
+  const path = req.originalUrl.replace(/^\/api\/media/, "/media");
+  proxyToService("media-service", path, req, res);
+});
+
 app.use("/tasks", (req, res) => {
-  // add a marker header so list-service can bypass auth in demo mode
   req.headers["x-skip-auth"] = "true";
   const path = req.originalUrl.replace(/^\/tasks/, "/lists");
   proxyToService("list-service", path, req, res);
 });
 
-// aggregated endpoints
 app.get("/api/dashboard", async (req, res) => {
-  // forward Authorization header
   const auth = req.headers.authorization;
   const listSvc = registry.discover("list-service");
   if (!listSvc)
@@ -145,7 +186,6 @@ app.get("/api/search", async (req, res) => {
 });
 
 app.get("/health", async (req, res) => {
-  // trigger registry health check and return registry
   await registry.healthCheckAll().catch(() => {});
   const reg = registry.list();
   res.json({ gateway: "ok", registry: reg });

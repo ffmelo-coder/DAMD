@@ -2,7 +2,6 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
 
-// Use a single SQLite file under the repo data directory
 const DB_FILE = path.join(__dirname, "..", "data", "app.db");
 
 function ensureDataDir() {
@@ -12,23 +11,15 @@ function ensureDataDir() {
 
 function initDb() {
   ensureDataDir();
-  // Open with a busy timeout so concurrent processes wait for locks
-  // instead of immediately throwing SQLITE_BUSY.
   const db = new Database(DB_FILE, { timeout: 5000 });
 
-  // Apply a reasonable busy timeout at runtime as well.
   try {
     db.pragma("busy_timeout = 5000");
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) {}
 
-  // Try to set WAL journal mode; if it's busy, continue — WAL is an optimization.
   try {
     db.pragma("journal_mode = WAL");
-  } catch (e) {
-    // ignore journal_mode failures when DB is locked by another process
-  }
+  } catch (e) {}
 
   db.exec(
     `CREATE TABLE IF NOT EXISTS kv (
@@ -42,7 +33,6 @@ function initDb() {
 const db = initDb();
 
 function keyFor(filePath) {
-  // Use the basename of the JSON file as key to preserve previous semantics
   return path.basename(filePath);
 }
 

@@ -5,13 +5,20 @@ const services = [
   { name: "user", script: "services/user/index.js" },
   { name: "item", script: "services/item/index.js" },
   { name: "list", script: "services/list/index.js" },
+  { name: "media", script: "services/media/index.js" },
   { name: "gateway", script: "gateway/index.js" },
 ];
 
 function startService(svc) {
+  const env = Object.assign({}, process.env);
+
+  if (svc.name === "media") {
+    env.GATEWAY_URL = "https://SEU-NGROK-AQUI";
+  }
+
   const p = spawn("node", [svc.script], {
     cwd: path.resolve(__dirname),
-    env: Object.assign({}, process.env),
+    env: env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -43,5 +50,4 @@ function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-// keep process alive
 setInterval(() => {}, 1000);

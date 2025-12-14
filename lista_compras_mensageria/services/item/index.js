@@ -8,14 +8,15 @@ const jwt = require("jsonwebtoken");
 const app = express();
 app.use(bodyParser.json());
 
-// simple request logger
 app.use((req, res, next) => {
   try {
     const safeBody = Object.assign({}, req.body || {});
-    if (safeBody.password) safeBody.password = '****';
-    console.log(`[item] ${req.method} ${req.originalUrl} body=${JSON.stringify(safeBody)}`);
+    if (safeBody.password) safeBody.password = "****";
+    console.log(
+      `[item] ${req.method} ${req.originalUrl} body=${JSON.stringify(safeBody)}`
+    );
   } catch (e) {
-    console.log('[item] request logger error', e.message || e);
+    console.log("[item] request logger error", e.message || e);
   }
   next();
 });
@@ -61,7 +62,6 @@ app.get("/items/:id", (req, res) => {
 });
 
 app.post("/items", (req, res) => {
-  // require JWT
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ error: "missing token" });
   const parts = auth.split(" ");
@@ -110,7 +110,6 @@ app.get("/search", (req, res) => {
   res.json(found);
 });
 
-// register
 const serviceUrl = `http://localhost:${PORT}`;
 registry.registerService("item-service", {
   url: serviceUrl,

@@ -17,7 +17,6 @@ ensureFile(DATA_FILE, []);
 const JWT_SECRET = process.env.JWT_SECRET || "verysecret";
 
 function authMiddleware(req, res, next) {
-  // allow bypass for demo/testing when gateway injects this header
   if (req.headers && req.headers["x-skip-auth"] === "true") {
     req.user = { id: "demo-user", email: "demo@example.com" };
     return next();
@@ -45,7 +44,6 @@ app.post("/lists", authMiddleware, async (req, res) => {
   const id = uuidv4();
   const now = new Date().toISOString();
 
-  // construct initial list object
   const list = {
     id,
     name: name || "",
@@ -58,14 +56,11 @@ app.post("/lists", authMiddleware, async (req, res) => {
     summary: { totalItems: 0, purchasedItems: 0, estimatedTotal: 0 },
   };
 
-  // If client provided items in the create request, process them.
   if (Array.isArray(incomingItems) && incomingItems.length > 0) {
-    // Try to discover item service once for enrichment
     const svc = registry.discover("item-service");
     for (const inc of incomingItems) {
       try {
         if (inc.itemId && svc) {
-          // Fetch item details from item-service to enrich
           const resp = await fetch(`${svc.url}/items/${inc.itemId}`);
           if (resp.ok) {
             const item = await resp.json();
@@ -83,7 +78,6 @@ app.post("/lists", authMiddleware, async (req, res) => {
             };
             list.items.push(added);
           } else {
-            // If item-service doesn't know this item, fall back to accepting provided data
             const fallback = {
               itemId: inc.itemId,
               itemName: inc.itemName || inc.name || "",
@@ -98,7 +92,6 @@ app.post("/lists", authMiddleware, async (req, res) => {
             list.items.push(fallback);
           }
         } else {
-          // Accept inline item data (client-generated)
           const inline = {
             itemId: inc.itemId || null,
             itemName: inc.itemName || inc.name || "",
@@ -113,14 +106,12 @@ app.post("/lists", authMiddleware, async (req, res) => {
           list.items.push(inline);
         }
       } catch (e) {
-        // on any error, skip this item but continue with others
         console.warn(
           "Failed to process incoming item on list create:",
           e && e.message
         );
       }
     }
-    // recalc summary and updatedAt
     list.summary = calculateSummary(list.items);
     list.updatedAt = new Date().toISOString();
   }
@@ -178,7 +169,6 @@ app.delete("/lists/:id", authMiddleware, (req, res) => {
   res.json({ ok: true });
 });
 
-// Add item to list: expects { itemId, quantity }
 app.post("/lists/:id/items", authMiddleware, async (req, res) => {
   const lists = readJson(DATA_FILE, []);
   const idx = lists.findIndex((l) => l.id === req.params.id);
@@ -189,7 +179,6 @@ app.post("/lists/:id/items", authMiddleware, async (req, res) => {
   const { itemId, quantity = 1, notes = "" } = req.body;
   if (!itemId) return res.status(400).json({ error: "itemId required" });
 
-  // discover item service
   const svc = registry.discover("item-service");
   if (!svc) return res.status(500).json({ error: "item service unavailable" });
   try {
@@ -209,7 +198,6 @@ app.post("/lists/:id/items", authMiddleware, async (req, res) => {
       id: uuidv4(),
     };
     list.items.push(added);
-    // recalc summary
     list.summary = calculateSummary(list.items);
     list.updatedAt = new Date().toISOString();
     lists[idx] = list;
@@ -234,7 +222,6 @@ app.put("/lists/:id/items/:itemId", authMiddleware, (req, res) => {
   const { quantity, purchased, notes } = req.body;
   if (quantity !== undefined) {
     it.quantity = Number(quantity);
-    // adjust estimatedPrice if we have cached unit price
     const unitPrice =
       it.estimatedPrice && it.quantity
         ? it.estimatedPrice / it.quantity
@@ -279,7 +266,6 @@ app.get("/lists/:id/summary", authMiddleware, (req, res) => {
   res.json(list.summary);
 });
 
-// Checkout endpoint: publish event and return 202 immediately
 app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
   const lists = readJson(DATA_FILE, []);
   const idx = lists.findIndex((l) => l.id === req.params.id);
@@ -288,15 +274,12 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
   if (!requireOwnership(req.user.id, list))
     return res.status(403).json({ error: "forbidden" });
 
-  // mark as completed locally
   list.status = "completed";
   list.updatedAt = new Date().toISOString();
-  // ensure summary up-to-date
   list.summary = calculateSummary(list.items);
   lists[idx] = list;
   writeJson(DATA_FILE, lists);
 
-  // Build event payload
   const payload = {
     event: "list.checkout.completed",
     listId: list.id,
@@ -306,7 +289,6 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
     timestamp: new Date().toISOString(),
   };
 
-  // fetch user email for notification if available (best-effort)
   try {
     const userSvc = registry.discover("user-service");
     if (userSvc) {
@@ -318,11 +300,8 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
         payload.userEmail = u.email;
       }
     }
-  } catch (e) {
-    // ignore; it's best-effort
-  }
+  } catch (e) {}
 
-  // publish to RabbitMQ asynchronously
   const amqpUrl =
     process.env.AMQP_URL ||
     process.env.CLOUDAMQP_URL ||
@@ -345,7 +324,6 @@ app.post("/lists/:id/checkout", authMiddleware, async (req, res) => {
     }
   })();
 
-  // return accepted immediately
   res.status(202).json({ status: "accepted", listId: list.id });
 });
 
@@ -359,7 +337,6 @@ function calculateSummary(items) {
   return { totalItems, purchasedItems, estimatedTotal };
 }
 
-// register
 const serviceUrl = `http://localhost:${PORT}`;
 registry.registerService("list-service", {
   url: serviceUrl,

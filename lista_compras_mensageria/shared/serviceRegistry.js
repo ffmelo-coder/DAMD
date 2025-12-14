@@ -27,7 +27,6 @@ function save(reg) {
 function registerService(name, info) {
   const reg = load();
   reg[name] = reg[name] || [];
-  // avoid duplicates by url
   if (!reg[name].find((s) => s.url === info.url)) {
     reg[name].push(
       Object.assign({ registeredAt: Date.now(), healthy: true }, info)
@@ -47,7 +46,6 @@ function unregisterService(name, url) {
 function discover(serviceName) {
   const reg = load();
   if (!reg[serviceName] || reg[serviceName].length === 0) return null;
-  // return first healthy
   const healthy = reg[serviceName].filter((s) => s.healthy);
   return healthy[0] || reg[serviceName][0] || null;
 }
@@ -76,14 +74,11 @@ async function healthCheckAll() {
   save(reg);
 }
 
-// start periodic health checks
 setInterval(() => {
   healthCheckAll().catch(() => {});
 }, 30 * 1000);
 
-process.on("exit", () => {
-  // no-op cleanup: in real environment we'd unregister
-});
+process.on("exit", () => {});
 
 module.exports = {
   registerService,

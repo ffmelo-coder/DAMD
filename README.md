@@ -4,6 +4,10 @@ Video Provas do Offline First:
 
 https://github.com/user-attachments/assets/a8f0e920-c62d-4b7a-886d-56cd01a8a3c3
 
+Video RabbitMq
+
+https://github.com/user-attachments/assets/0e337661-1fd8-40f4-85ac-008040cfdada
+
 Video (UI/UX - entrega 2):
 
 https://github.com/user-attachments/assets/42d56b56-0d84-4b5f-8167-95d904504cba
